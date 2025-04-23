@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "995472695081",
+    "project_id": "sipmytea-mariveles-daa50",
+    "storage_bucket": "sipmytea-mariveles-daa50.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:995472695081:android:e8d026d4e8bead9ef3a138",
+        "android_client_info": {
+          "package_name": "com.example.sipmytea"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBsyosmLwdmmkyFDxWK6ahDihcmusKwqAY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
