@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -164,7 +165,16 @@ class _SalesPageState extends State<SalesPage> {
         children: [
           Expanded(
             child: salesData.isEmpty
-                ? const Center(child: Text("No sales found for this user."))
+                ? const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Iconsax.money, size: 80, color: Colors.grey),
+                  SizedBox(height: 12),
+                  Text('No sales yet.', style: TextStyle(color: Colors.grey, fontSize: 16)),
+                ],
+              ),
+            )
                 : ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     itemCount: salesData.length,

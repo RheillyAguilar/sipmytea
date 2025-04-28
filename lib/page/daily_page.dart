@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
 
 class DailyPage extends StatefulWidget {
@@ -173,7 +174,16 @@ class _DailyPageState extends State<DailyPage> {
         padding: const EdgeInsets.all(16.0),
         child: widget.isAdmin
             ? allDailyData.isEmpty
-                ? const Center(child: Text('No daily summaries available.'))
+                ? const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Iconsax.graph, size: 80, color: Colors.grey),
+                  SizedBox(height: 12),
+                  Text('No daily summaries yet.', style: TextStyle(color: Colors.grey, fontSize: 16)),
+                ],
+              ),
+            )
                 : ListView(
                     children: allDailyData.entries
                         .map((entry) => _buildUserSummaryCard(entry.key, entry.value))
