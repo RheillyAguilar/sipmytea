@@ -65,7 +65,7 @@ class _StockPageState extends State<StockPage> {
                 if (name.isNotEmpty && number.isNotEmpty) {
                   setState(() {
                     if (isEditing) {
-                      _stocks[editIndex!] = {'name': name, 'number': number};
+                      _stocks[editIndex] = {'name': name, 'number': number};
                     } else {
                       _stocks.add({'name': name, 'number': number});
                     }
