@@ -123,7 +123,7 @@ class _DailyPageState extends State<DailyPage> {
     final String monthKey = DateFormat('MMMM yyyy').format(DateTime.now());
     final double netSales = (data['netSales'] ?? 0).toDouble();
 
-    final monthlyDocRef = firestore.collection('monthly_sales').doc('$username-$formattedDate');
+    final monthlyDocRef = firestore.collection('monthly_sales').doc(formattedDate);
 
     final monthlyDocSnap = await monthlyDocRef.get();
 
@@ -137,7 +137,6 @@ class _DailyPageState extends State<DailyPage> {
     } else {
       await monthlyDocRef.set({
         'amount': netSales,
-        'user': username,
         'date': monthKey,
       });
     }
