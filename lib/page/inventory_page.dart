@@ -348,94 +348,119 @@ class _InventoryPageState extends State<InventoryPage> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Inventory Page')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Card(
-              color: Colors.grey[100],
-              child: ListTile(
-                title: Text(
-                  'Total Sales: ₱$inventoryTotalSales',
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
+@override
+Widget build(BuildContext context) {
+  bool hasSalesOrExpenses = inventoryTotalSales > 0 || totalExpenses > 0;
+  
+  return Scaffold(
+    appBar: AppBar(title: const Text('Inventory Page')),
+    body: Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: hasSalesOrExpenses
+          ? Column(
+              children: [
+                if (inventoryTotalSales > 0)
+                  Card(
+                    color: Colors.grey[100],
+                    child: ListTile(
+                      title: Text(
+                        'Total Sales: ₱$inventoryTotalSales',
+                        style: const TextStyle(
+                            fontSize: 20, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 20),
+                if (inventoryTotalSales > 0) ...[
+                  Row(
+                    children: [
+                      Expanded(
+                          child: _buildCategoryCard(
+                              'Silog', silogCount, Color(0xFFe1ad01))),
+                      const SizedBox(width: 10),
+                      Expanded(
+                          child: _buildCategoryCard(
+                              'Snacks', snackCount, Color(0xFFb8286d))),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                          child: _buildCategoryCard('Regular Cups',
+                              regularCupCount, Color(0xFF25b3b9))),
+                      const SizedBox(width: 10),
+                      Expanded(
+                          child: _buildCategoryCard(
+                              'Large Cups', largeCupCount, Color(0xFF166e71))),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 20),
+                if (expenses.isNotEmpty) _buildExpenseCard(),
+                const Spacer(),
+              ],
+            )
+          : const Center(
+              child: Text(
+                'No inventory yet.',
+                style: TextStyle(fontSize: 16, color: Colors.black54),
               ),
             ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(child: _buildCategoryCard('Silog', silogCount, Color(0xFFe1ad01))),
-                const SizedBox(width: 10),
-                Expanded(child: _buildCategoryCard('Snacks', snackCount, Color(0xFFb8286d))),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(child: _buildCategoryCard('Regular Cups', regularCupCount, Color(0xFF25b3b9))),
-                const SizedBox(width: 10),
-                Expanded(child: _buildCategoryCard('Large Cups', largeCupCount, Color(0xFF166e71))),
-              ],
-            ),
-            const SizedBox(height: 20),
-            if (expenses.isNotEmpty) _buildExpenseCard(),
-            const Spacer(),
-          ],
-        ),
+    ),
+    floatingActionButton: FloatingActionButton(
+      onPressed: _showExpenseDialog,
+      backgroundColor: Colors.white,
+      child: const Icon(
+        Icons.add,
+        color: Color(0xFF4b8673),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showExpenseDialog,
-        backgroundColor: Colors.white,
-        child: const Icon(Icons.add, color: Color(0xFF4b8673),),
-      ),
-       bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(20),
-            topRight: Radius.circular(20),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              spreadRadius: 2,
-              blurRadius: 10,
-              offset: const Offset(0, -2),
-            ),
-          ],
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Daily Sales:',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                Text(
-                  '₱${(inventoryTotalSales - totalExpenses).toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green,
-                  ),
+    ),
+    bottomNavigationBar: hasSalesOrExpenses
+        ? Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(20),
+                topRight: Radius.circular(20),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  spreadRadius: 2,
+                  blurRadius: 10,
+                  offset: const Offset(0, -2),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            ElevatedButton(
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder:
-                      (context) => AlertDialog(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Daily Sales:',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      '₱${(inventoryTotalSales - totalExpenses).toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton(
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
                         title: const Text('Confirmation'),
                         backgroundColor: Colors.white,
                         content: const Text(
@@ -455,10 +480,10 @@ class _InventoryPageState extends State<InventoryPage> {
                                   .collection('expenses')
                                   .get()
                                   .then((snapshot) {
-                                    for (var doc in snapshot.docs) {
-                                      doc.reference.delete();
-                                    }
-                                  });
+                                for (var doc in snapshot.docs) {
+                                  doc.reference.delete();
+                                }
+                              });
                               await firestore
                                   .collection('inventory')
                                   .doc('sales')
@@ -476,8 +501,7 @@ class _InventoryPageState extends State<InventoryPage> {
                               backgroundColor: Color(0xFF4b8673),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                side: BorderSide.none
-                              )
+                              ),
                             ),
                             child: const Text(
                               'Confirm',
@@ -487,33 +511,29 @@ class _InventoryPageState extends State<InventoryPage> {
                           TextButton(
                             onPressed: () => Navigator.pop(context),
                             style: TextButton.styleFrom(
-                              foregroundColor: Colors.grey[700]
-                            ),
-                            child: const Text(
-                              'Cancel',
-                            ),
+                                foregroundColor: Colors.grey[700]),
+                            child: const Text('Cancel'),
                           ),
                         ],
                       ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(
-                  0xFF3A705E,
-                ), // Match "Confirm Order"
-                minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF3A705E),
+                    minimumSize: const Size(double.infinity, 50),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Confirm Daily Sales',
+                    style: TextStyle(color: Colors.white, fontSize: 16),
+                  ),
                 ),
-              ),
-              child: const Text(
-                'Confirm Daily Sales',
-                style: TextStyle(color: Colors.white, fontSize: 16),
-              ),
+              ],
             ),
-          ],
-        ),
-      ),
-    );
-  }
+          )
+        : null,
+  );
+}
 }
