@@ -204,6 +204,10 @@ class _SalesPageState extends State<SalesPage> {
                                   onPressed: () => Navigator.of(context).pop(true),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.red,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      side: BorderSide.none
+                                    )
                                   ),
                                   child: const Text(
                                     "Delete",
