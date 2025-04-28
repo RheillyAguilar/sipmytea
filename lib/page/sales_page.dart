@@ -202,6 +202,9 @@ class _SalesPageState extends State<SalesPage> {
                                 ),
                                 TextButton(
                                   onPressed: () => Navigator.of(context).pop(false),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: Colors.grey[700]
+                                  ),
                                   child: const Text("Cancel"),
                                 ),
                               ],
