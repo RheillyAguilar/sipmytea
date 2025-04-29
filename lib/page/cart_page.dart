@@ -129,6 +129,19 @@ class _CartPageState extends State<CartPage> {
     );
   }
 
+  Future<DocumentSnapshot?> _getExistingStockDoc(
+    List<String> possibleNames,
+  ) async {
+    final firestore = FirebaseFirestore.instance;
+    for (String name in possibleNames) {
+      final doc = await firestore.collection('stock').doc(name).get();
+      if (doc.exists) {
+        return doc;
+      }
+    }
+    return null; // none found
+  }
+
   void _confirmOrder() async {
     if (cartItems.isEmpty) {
       if (mounted) {
@@ -192,121 +205,98 @@ class _CartPageState extends State<CartPage> {
           'timestamp': FieldValue.serverTimestamp(),
         });
 
-      // ====== START: Stock Management ======
+        // ====== START: Stock Management ======
 
         // PATTIES MANAGEMENT
         final pattiesDoc = await firestore.collection('stock').doc('Patties').get();
         if (pattiesDoc.exists) {
-          int currentQuantity = int.tryParse(pattiesDoc['quantity'].toString()) ?? 0;
-          int pattiesNeeded = 0; // Default to 0 (no deduction)
-
-          String productName = item.productName.toLowerCase();
-
-          if (productName.contains('combo')) {
-            pattiesNeeded = 1; // Combo needs 1 patty
-          } else if (productName.contains('beef')) {
-            pattiesNeeded = 2; // Regular beef needs 2 patties
-          }
+          final product = item.productName.toLowerCase();
+          final pattiesNeeded = (['regular beef', 'cheese beef'].any(product.contains))
+              ? 2
+              : product.contains('combo')
+                  ? 1
+                  : 0;
 
           if (pattiesNeeded > 0) {
-            int totalPattiesToDeduct = pattiesNeeded;
-            int updatedQuantity = currentQuantity - totalPattiesToDeduct;
+            int currentQty = int.tryParse(pattiesDoc['quantity'].toString()) ?? 0;
+            int updatedQty = (currentQty - pattiesNeeded).clamp(0, currentQty);
+            await pattiesDoc.reference.update({'quantity': updatedQty.toString()});
+          }
+        }
 
-            if (updatedQuantity < 0) updatedQuantity = 0;
-            await firestore.collection('stock').doc('Patties').update({
-              'quantity': updatedQuantity.toString(),
-            });
+        // Cheese Stick Management
+        final cheeseStickDoc = await firestore.collection('stock').doc('Cheese Stick').get();
+        if (cheeseStickDoc.exists) {
+          final product = item.productName.toLowerCase();
+          final cheeseNeeded = product.contains('cheesestick')
+              ? 10
+              : product.contains('combo')
+                  ? 7
+                  : 0;
+
+          if (cheeseNeeded > 0) {
+            int currentQty = int.tryParse(cheeseStickDoc['quantity'].toString()) ?? 0;
+            int updatedQty = (currentQty - cheeseNeeded).clamp(0, currentQty);
+            await cheeseStickDoc.reference.update({'quantity': updatedQty.toString()});
           }
         }
 
 
-        // Cheese Stick
-        final cheeseStickDoc = await firestore.collection('stock').doc('Cheese Stick').get();
-        if(cheeseStickDoc.exists) {
-          int currentQuantity = int.tryParse(cheeseStickDoc['quantity'].toString()) ?? 0;
-          int cheeseNeeded = 0;
-          String productName = item.productName.toLowerCase();
-
-          if(productName.contains('cheesestick')) {
-            cheeseNeeded = 10;
-          } else if (productName.contains('combo')){
-            cheeseNeeded = 7;
-          }
-
-          if(cheeseNeeded > 0) {
-            int totalCheeseDeduct = cheeseNeeded;
-            int updatedQuantity = currentQuantity - totalCheeseDeduct;
-            if(updatedQuantity < 0) {
-              updatedQuantity = 0;}
-            await firestore.collection('stock').doc('Cheese Stick').update({
-                'quantity' : updatedQuantity.toString()
-            });}}
-
-
         // Fries Management
         final friesDoc = await firestore.collection('stock').doc('Fries').get();
-        if(friesDoc.exists) {
-          int currentQuantity = int.tryParse(friesDoc['quantity'].toString()) ?? 0;
-          int friesNeeded = 0;
-          String productName = item.productName.toLowerCase();
+        if (friesDoc.exists) {
+          final product = item.productName.toLowerCase();
+          final friesNeeded = product.contains('fries')
+              ? 170
+              : product.contains('combo')
+                  ? 120
+                  : 0;
 
-          if(productName.contains('fries')) {
-            friesNeeded = 170;
-          } else if (productName.contains('combo')) {
-            friesNeeded = 120;
-          }
-
-          if(friesNeeded > 0 ) {
-            int totalFriesDeduct = friesNeeded;
-            int updatedQuantity = currentQuantity - totalFriesDeduct;
-            if(updatedQuantity < 0) {
-              updatedQuantity = 0;}
-            await firestore.collection('stock').doc('Fries').update({
-              'quantity': updatedQuantity.toString()
-            });
+          if (friesNeeded > 0) {
+            int currentQty = int.tryParse(friesDoc['quantity'].toString()) ?? 0;
+            int updatedQty = (currentQty - friesNeeded).clamp(0, currentQty);
+            await friesDoc.reference.update({'quantity': updatedQty.toString()});
           }
         }
 
 
         // Egg Management
-        Future<DocumentSnapshot?> _getExistingStockDoc(List<String> possibleNames) async {
-  final firestore = FirebaseFirestore.instance;
-  for (String name in possibleNames) {
-    final doc = await firestore.collection('stock').doc(name).get();
-    if (doc.exists) {
-      return doc;
-    }
-  }
-  return null; // none found
-}
-final eggDoc = await _getExistingStockDoc(['Egg', 'Itlog']);
-if (eggDoc != null) {
-  int currentEggQty = int.tryParse(eggDoc['quantity'].toString()) ?? 0;
-  int eggsNeeded = 0;
+       final eggDoc = await _getExistingStockDoc(['Egg', 'Itlog']);
+        if (eggDoc != null) {
+          final product = item.productName.toLowerCase();
+          final eggsNeeded = product.contains('egg')
+              ? 2
+              : product.contains('silog')
+                  ? 1
+                  : 0;
 
-  String productName = item.productName.toLowerCase();
-
-  if (productName.contains('egg')) {
-    eggsNeeded = 2;
-  }
-
-  if (eggsNeeded > 0) {
-    int updatedEggQty = currentEggQty - eggsNeeded;
-    if (updatedEggQty < 0) updatedEggQty = 0;
-
-    await eggDoc.reference.update({
-      'quantity': updatedEggQty.toString(),
-    });
-  }
-}
+          if (eggsNeeded > 0) {
+            int currentQty = int.tryParse(eggDoc['quantity'].toString()) ?? 0;
+            int updatedQty = (currentQty - eggsNeeded).clamp(0, currentQty);
+            await eggDoc.reference.update({'quantity': updatedQty.toString()});
+          }
+        }
 
 
 
+        // Cups Management
+        final cupSize = item.size.toLowerCase();
+        final cupDocName =
+            {'regular': 'Regular Cups', 'large': 'Large Cups'}[cupSize];
+        if (cupDocName != null) {
+          final cupDoc =
+              await firestore.collection('stock').doc(cupDocName).get();
+          if (cupDoc.exists) {
+            int currentQty = int.tryParse(cupDoc['quantity'].toString()) ?? 0;
+            int updatedQty = currentQty - 1;
+            if (updatedQty < 0) updatedQty = 0;
+            await firestore.collection('stock').doc(cupDocName).update({
+              'quantity': updatedQty.toString(),
+            });
+          }
+        }
 
-
-
-      // ====== END: Stock Management ======
-        
+        // ====== END: Stock Management ======
       }
 
       if (mounted) {
