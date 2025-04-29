@@ -1,6 +1,6 @@
-# sipmytea
+# Sip My Tea
+- This project is all about Point of Sales with and Ordering System for Milktea Shop.
 
-A new Flutter project.
 
 ## Getting Started
 
