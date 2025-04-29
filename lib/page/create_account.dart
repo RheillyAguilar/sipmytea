@@ -26,6 +26,19 @@ class _CreateAccountState extends State<CreateAccount> {
     _obscurePassword = true;
   }
 
+  InputDecoration _inputDecoration(String label, IconData icon) {
+    return InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(icon),
+      filled: true,
+      fillColor: const Color(0xFFF6F6F6),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -101,18 +114,18 @@ class _CreateAccountState extends State<CreateAccount> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.red,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)
-                            )
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
                           child: const Text(
                             "Delete",
                             style: TextStyle(color: Colors.white),
                           ),
                         ),
-                         TextButton(
+                        TextButton(
                           onPressed: () => Navigator.of(ctx).pop(false),
                           style: TextButton.styleFrom(
-                            foregroundColor: Colors.grey[700]
+                            foregroundColor: Colors.grey[700],
                           ),
                           child: const Text("Cancel"),
                         ),
@@ -137,173 +150,183 @@ class _CreateAccountState extends State<CreateAccount> {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFF4b8673),
         onPressed: () {
           bool tempIsAdmin = isAdmin;
 
-          showDialog(
+          showModalBottomSheet(
             context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.white,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
             builder: (context) {
-              return AlertDialog(
-                backgroundColor: Colors.white,
-                title: const Text('Create Account'),
-                content: StatefulBuilder(
+              return Padding(
+                padding: EdgeInsets.only(
+                  left: 20,
+                  right: 20,
+                  top: 20,
+                  bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                ),
+                child: StatefulBuilder(
                   builder: (context, setState) {
-                    return SizedBox(
-                      width: 900,
-                      child: Form(
-                        key: _formKey,
-                        child: SingleChildScrollView(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: <Widget>[
-                              TextFormField(
-                                controller: usernameController,
-                                decoration: InputDecoration(
-                                  labelText: 'Username',
-                                  prefixIcon: Icon(Icons.person),
-                                  filled: true,
-                                  fillColor: Color(0xFFF6F6F6),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide.none
-                                  )
+                    return Form(
+                      key: _formKey,
+                      child: SingleChildScrollView(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Center(
+                              child: Container(
+                                width: 40,
+                                height: 4,
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[300],
+                                  borderRadius: BorderRadius.circular(2),
                                 ),
-                                validator: (value) {
-                                  if (value == null || value.isEmpty) {
-                                    return 'Please enter a username';
-                                  }
-                                  return null;
-                                },
                               ),
-                              const SizedBox(height: 10),
-                              TextFormField(
-                                controller: emailController,
-                                decoration: InputDecoration(
-                                  labelText: 'Email',
-                                  prefixIcon: Icon(Icons.email),
-                                  filled: true,
-                                  fillColor: Color(0xFFF6F6F6),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide.none
-                                  )
+                            ),
+                            const SizedBox(height: 20),
+                            const Text(
+                              'Create Account',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            TextFormField(
+                              controller: usernameController,
+                              decoration: _inputDecoration('Username', Icons.person),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Please enter a username';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: emailController,
+                              decoration: _inputDecoration('Email', Icons.email),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Please enter an email';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: passwordController,
+                              obscureText: _obscurePassword,
+                              decoration: InputDecoration(
+                                labelText: 'Password',
+                                prefixIcon: const Icon(Icons.lock),
+                                filled: true,
+                                fillColor: const Color(0xFFF6F6F6),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide.none,
                                 ),
-                                validator: (value) {
-                                  if (value == null || value.isEmpty) {
-                                    return 'Please enter an email';
-                                  }
-                                  return null;
-                                },
-                              ),
-                              const SizedBox(height: 10),
-                              TextFormField(
-                                controller: passwordController,
-                                obscureText: _obscurePassword,
-                                decoration: InputDecoration(
-                                  labelText: 'Password',
-                                  prefixIcon: const Icon(Icons.lock),
-                                  filled: true,
-                                  fillColor: Color(0xFFF6F6F6),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide.none
+                                suffixIcon: IconButton(
+                                  icon: Icon(
+                                    _obscurePassword
+                                        ? Icons.visibility_off
+                                        : Icons.visibility,
                                   ),
-                                  suffixIcon: IconButton(
-                                    icon: Icon(
-                                      _obscurePassword
-                                          ? Icons.visibility_off
-                                          : Icons.visibility,
+                                  onPressed: () {
+                                    setState(() {
+                                      _obscurePassword = !_obscurePassword;
+                                    });
+                                  },
+                                ),
+                              ),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Please enter a password';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                const Text('Admin:', style: TextStyle(fontSize: 18)),
+                                Switch(
+                                  value: tempIsAdmin,
+                                  onChanged: (value) {
+                                    setState(() {
+                                      tempIsAdmin = value;
+                                    });
+                                  },
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 24),
+                            ElevatedButton(
+                              onPressed: () async {
+                                if (_formKey.currentState!.validate()) {
+                                  setState(() {
+                                    isAdmin = tempIsAdmin;
+                                  });
+
+                                  await FirebaseFirestore.instance
+                                      .collection('account')
+                                      .add({
+                                    'username': usernameController.text.trim(),
+                                    'email': emailController.text.trim(),
+                                    'password': passwordController.text.trim(),
+                                    'admin': isAdmin,
+                                  });
+
+                                  _resetForm();
+                                  Navigator.pop(context);
+
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Account created successfully!'),
                                     ),
-                                    onPressed: () {
-                                      setState(() {
-                                        _obscurePassword = !_obscurePassword;
-                                      });
-                                    },
-                                  ),
+                                  );
+                                }
+                              },
+                              style: ElevatedButton.styleFrom(
+                                minimumSize: const Size(double.infinity, 50),
+                                backgroundColor: const Color(0xFF4B8673),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
-                                validator: (value) {
-                                  if (value == null || value.isEmpty) {
-                                    return 'Please enter a password';
-                                  }
-                                  return null;
-                                },
                               ),
-                              const SizedBox(height: 10),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.start,
-                                children: [
-                                  const Text('Admin:', style: TextStyle(fontSize: 20)),
-                                  Switch(
-                                    value: tempIsAdmin,
-                                    onChanged: (value) {
-                                      setState(() {
-                                        tempIsAdmin = value;
-                                      });
-                                    },
-                                  ),
-                                ],
+                              child: const Text(
+                                'Create Account',
+                                style: TextStyle(color: Colors.white),
                               ),
-                            ],
-                          ),
+                            ),
+                            const SizedBox(height: 10),
+                            TextButton(
+                              onPressed: () {
+                                _resetForm();
+                                Navigator.pop(context);
+                              },
+                              style: TextButton.styleFrom(
+                                minimumSize: const Size(double.infinity, 50),
+                                foregroundColor: Colors.grey[700],
+                              ),
+                              child: const Text('Cancel'),
+                            ),
+                          ],
                         ),
                       ),
                     );
                   },
                 ),
-                actions: [
-                  ElevatedButton(
-                    onPressed: () async {
-                      if (_formKey.currentState!.validate()) {
-                        setState(() {
-                          isAdmin = tempIsAdmin;
-                        });
-
-                        await FirebaseFirestore.instance
-                            .collection('account')
-                            .add({
-                          'username': usernameController.text.trim(),
-                          'email': emailController.text.trim(),
-                          'password': passwordController.text.trim(),
-                          'admin': isAdmin,
-                        });
-
-                        _resetForm();
-                        Navigator.pop(context);
-
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text('Account created successfully!')),
-                        );
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Color(0xFF4B8673),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)
-                      )
-                    ),
-                    child: const Text(
-                      'Create',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      _resetForm();
-                      Navigator.pop(context);
-                    },
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.grey[700]
-                    ),
-                    child: const Text('Cancel', ),
-                  ),
-                ],
               );
             },
           );
         },
-        child: const Icon(Icons.add, color: Color(0xFF4B8673),),
+        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }

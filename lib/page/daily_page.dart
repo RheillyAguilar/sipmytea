@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
 
 class DailyPage extends StatefulWidget {
@@ -16,17 +17,21 @@ class _DailyPageState extends State<DailyPage> {
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
   late String today;
 
-  Map<String, dynamic>? dailyData; // for regular user
-  Map<String, Map<String, dynamic>> allDailyData = {}; // for admin view
+  Map<String, dynamic>? dailyData; // For regular user
+  Map<String, Map<String, dynamic>> allDailyData = {}; // For admin view
 
   @override
   void initState() {
     super.initState();
     today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
     if (widget.isAdmin) {
-      loadAllUsersDailyData();
+      await loadAllUsersDailyData();
     } else {
-      loadUserDailyData();
+      await loadUserDailyData();
     }
   }
 
@@ -41,6 +46,10 @@ class _DailyPageState extends State<DailyPage> {
     if (doc.exists) {
       setState(() {
         dailyData = doc.data();
+      });
+    } else {
+      setState(() {
+        dailyData = null;
       });
     }
   }
@@ -59,92 +68,122 @@ class _DailyPageState extends State<DailyPage> {
     });
   }
 
-  Future<void> _addUserToMonthlySale(String username, Map<String, dynamic> data) async {
-  final confirm = await showDialog<bool>(
-    context: context,
-    builder: (BuildContext context) {
-      return AlertDialog(
-        backgroundColor: Colors.white,
-        title: const Text('Confirmation'),
-        content: const Text('Are you sure to add this to monthly sales?'),
-        actions: [
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Color(0xFF4B8673),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide.none,
-              ),
-            ),
-            child: const Text('Confirm', style: TextStyle(color: Colors.white)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.grey[700],
-            ),
-            child: const Text('Cancel'),
-          ),
-        ],
-      );
-    },
-  );
+  Future<void> _pickDate() async {
+    DateTime initialDate = DateTime.tryParse(today) ?? DateTime.now();
 
-  if (confirm != true) return;
+    DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
 
-  final String formattedDate = DateFormat('MMMM d yyyy').format(DateTime.now());
-  final String monthKey = DateFormat('MMMM yyyy').format(DateTime.now());
-  final double netSales = (data['netSales'] ?? 0).toDouble();
-
-  final monthlyDocRef = firestore.collection('monthly_sales').doc('$username-$formattedDate');
-
-  final monthlyDocSnap = await monthlyDocRef.get();
-
-  if (monthlyDocSnap.exists) {
-    // Merge sales amount if document already exists
-    final existingData = monthlyDocSnap.data();
-    final double existingAmount = (existingData?['amount'] ?? 0).toDouble();
-
-    await monthlyDocRef.update({
-      'amount': existingAmount + netSales,
-    });
-  } else {
-    // Create new document if it doesn't exist
-    await monthlyDocRef.set({
-      'amount': netSales,
-      'user': username,
-      'date': monthKey,
-    });
+    if (picked != null) {
+      setState(() {
+        today = DateFormat('yyyy-MM-dd').format(picked);
+      });
+      await _loadData();
+    }
   }
 
-  // Remove user from today's daily records
-  await firestore
-      .collection('daily_records')
-      .doc(today)
-      .collection('users')
-      .doc(username)
-      .delete();
+  Future<void> _addUserToMonthlySale(String username, Map<String, dynamic> data) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          title: const Text('Confirmation'),
+          content: const Text('Are you sure to add this to monthly sales?'),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF4B8673),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide.none,
+                ),
+              ),
+              child: const Text('Confirm', style: TextStyle(color: Colors.white)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.grey[700],
+              ),
+              child: const Text('Cancel'),
+            ),
+          ],
+        );
+      },
+    );
 
-  setState(() {
-    allDailyData.remove(username);
-  });
+    if (confirm != true) return;
 
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text('$username\'s sales moved to Monthly')),
-  );
-}
+    final String formattedDate = DateFormat('MMMM d yyyy').format(DateTime.now());
+    final String monthKey = DateFormat('MMMM yyyy').format(DateTime.now());
+    final double netSales = (data['netSales'] ?? 0).toDouble();
 
+    final monthlyDocRef = firestore.collection('monthly_sales').doc(formattedDate);
+
+    final monthlyDocSnap = await monthlyDocRef.get();
+
+    if (monthlyDocSnap.exists) {
+      final existingData = monthlyDocSnap.data();
+      final double existingAmount = (existingData?['amount'] ?? 0).toDouble();
+
+      await monthlyDocRef.update({
+        'amount': existingAmount + netSales,
+      });
+    } else {
+      await monthlyDocRef.set({
+        'amount': netSales,
+        'date': monthKey,
+      });
+    }
+
+    await firestore
+        .collection('daily_records')
+        .doc(today)
+        .collection('users')
+        .doc(username)
+        .delete();
+
+    setState(() {
+      allDailyData.remove(username);
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('$username\'s sales moved to Monthly')),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Daily Summary')),
+      appBar: AppBar(
+        title: const Text('Daily Summary'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.calendar_today),
+            onPressed: _pickDate,
+          ),
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: widget.isAdmin
             ? allDailyData.isEmpty
-                ? const Center(child: Text('No daily summaries available.'))
+                ? const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Iconsax.graph, size: 80, color: Colors.grey),
+                  SizedBox(height: 12),
+                  Text('No daily summaries yet.', style: TextStyle(color: Colors.grey, fontSize: 16)),
+                ],
+              ),
+            )
                 : ListView(
                     children: allDailyData.entries
                         .map((entry) => _buildUserSummaryCard(entry.key, entry.value))
@@ -186,7 +225,7 @@ class _DailyPageState extends State<DailyPage> {
             ),
             const SizedBox(height: 5),
             Text(
-              today,
+              DateFormat('MMMM d, yyyy').format(DateTime.parse(today)),
               style: const TextStyle(fontSize: 16, color: Colors.grey),
             ),
             const SizedBox(height: 10),
@@ -197,17 +236,17 @@ class _DailyPageState extends State<DailyPage> {
             const SizedBox(height: 10),
             Row(
               children: [
-                Expanded(child: _buildCategoryCard('Silog', silogCount, Color(0xFFe1ad01))),
+                Expanded(child: _buildCategoryCard('Silog', silogCount, const Color(0xFFe1ad01))),
                 const SizedBox(width: 10),
-                Expanded(child: _buildCategoryCard('Snacks', snackCount, Color(0xFFb8286d))),
+                Expanded(child: _buildCategoryCard('Snacks', snackCount, const Color(0xFFb8286d))),
               ],
             ),
             const SizedBox(height: 10),
             Row(
               children: [
-                Expanded(child: _buildCategoryCard('Regular Cups', regularCupCount, Color(0xFF25b3b9))),
+                Expanded(child: _buildCategoryCard('Regular Cups', regularCupCount, const Color(0xFF25b3b9))),
                 const SizedBox(width: 10),
-                Expanded(child: _buildCategoryCard('Large Cups', largeCupCount, Color(0xFF166e71))),
+                Expanded(child: _buildCategoryCard('Large Cups', largeCupCount, const Color(0xFF166e71))),
               ],
             ),
             const SizedBox(height: 10),

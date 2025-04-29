@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -14,20 +15,22 @@ class _SalesPageState extends State<SalesPage> {
   final String formattedDate = DateFormat('MMMM d yyyy').format(DateTime.now());
   double totalSales = 0.0;
   List<Map<String, dynamic>> salesData = [];
+  List<String> docIds = [];
 
   Future<void> fetchSalesData() async {
     try {
-      final salesSnapshot =
-          await FirebaseFirestore.instance
-              .collection('daily_sales')
-              .doc(formattedDate)
-              .collection(widget.username)
-              .get();
+      final salesSnapshot = await FirebaseFirestore.instance
+          .collection('daily_sales')
+          .doc(formattedDate)
+          .collection(widget.username)
+          .get();
 
       final data = salesSnapshot.docs.map((doc) => doc.data()).toList();
+      final ids = salesSnapshot.docs.map((doc) => doc.id).toList();
 
       setState(() {
         salesData = data;
+        docIds = ids;
         totalSales = data.fold(
           0.0,
           (sum, item) => sum + (item['amount']?.toDouble() ?? 0.0),
@@ -35,6 +38,28 @@ class _SalesPageState extends State<SalesPage> {
       });
     } catch (e) {
       debugPrint("Error fetching sales: $e");
+    }
+  }
+
+  Future<void> deleteSale(int index) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('daily_sales')
+          .doc(formattedDate)
+          .collection(widget.username)
+          .doc(docIds[index])
+          .delete();
+
+      setState(() {
+        salesData.removeAt(index);
+        docIds.removeAt(index);
+        totalSales = salesData.fold(
+          0.0,
+          (sum, item) => sum + (item['amount']?.toDouble() ?? 0.0),
+        );
+      });
+    } catch (e) {
+      debugPrint("Error deleting sale: $e");
     }
   }
 
@@ -139,20 +164,83 @@ class _SalesPageState extends State<SalesPage> {
       body: Column(
         children: [
           Expanded(
-            child:
-                salesData.isEmpty
-                    ? const Center(child: Text("No sales found for this user."))
-                    : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      itemCount: salesData.length,
-                      itemBuilder: (context, index) {
-                        final item = salesData[index];
-                        final productName = item['productName'] ?? 'Unknown';
-                        final size = item['size'] ?? 'N/A';
-                        final addOns = List<String>.from(item['addOns'] ?? []);
-                        final amount = item['amount']?.toDouble() ?? 0.0;
+            child: salesData.isEmpty
+                ? const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Iconsax.money, size: 80, color: Colors.grey),
+                  SizedBox(height: 12),
+                  Text('No sales yet.', style: TextStyle(color: Colors.grey, fontSize: 16)),
+                ],
+              ),
+            )
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    itemCount: salesData.length,
+                    itemBuilder: (context, index) {
+                      final item = salesData[index];
+                      final productName = item['productName'] ?? 'Unknown';
+                      final size = item['size'] ?? 'N/A';
+                      final addOns = List<String>.from(item['addOns'] ?? []);
+                      final amount = item['amount']?.toDouble() ?? 0.0;
 
-                        return Card(
+                      return Dismissible(
+                        key: Key(docIds[index]),
+                        direction: DismissDirection.horizontal,
+                        confirmDismiss: (direction) async {
+                          return await showDialog(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              title: const Text("Confirm Deletion"),
+                              content: const Text(
+                                "Are you sure you want to delete this sale?",
+                              ),
+                              actions: [
+                                ElevatedButton(
+                                  onPressed: () => Navigator.of(context).pop(true),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      side: BorderSide.none
+                                    )
+                                  ),
+                                  child: const Text(
+                                    "Delete",
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: () => Navigator.of(context).pop(false),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: Colors.grey[700]
+                                  ),
+                                  child: const Text("Cancel"),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                        onDismissed: (direction) {
+                          deleteSale(index);
+                        },
+                        background: Container(
+                          color: Colors.red,
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          alignment: Alignment.centerLeft,
+                          child: const Icon(Icons.delete, color: Colors.white),
+                        ),
+                        secondaryBackground: Container(
+                          color: Colors.red,
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          alignment: Alignment.centerRight,
+                          child: const Icon(Icons.delete, color: Colors.white),
+                        ),
+                        child: Card(
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
                           ),
@@ -206,9 +294,10 @@ class _SalesPageState extends State<SalesPage> {
                               ],
                             ),
                           ),
-                        );
-                      },
-                    ),
+                        ),
+                      );
+                    },
+                  ),
           ),
           if (salesData.isNotEmpty)
             Container(
@@ -253,45 +342,40 @@ class _SalesPageState extends State<SalesPage> {
                       onPressed: () {
                         showDialog(
                           context: context,
-                          builder:
-                              (context) => AlertDialog(
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                backgroundColor: Colors.white,
-                                title: const Text(
-                                  "Confirm Action",
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                                content: const Text(
-                                  "Are you sure you want to add sales to inventory and reset data?",
-                                ),
-                                actions: [
-                                  ElevatedButton(
-                                    onPressed: () {
-                                      Navigator.of(context).pop();
-                                      addToInventorySales(context);
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Color(0xFF4B8673),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                    child: Text(
-                                      'Confirm',
-                                      style: TextStyle(color: Colors.white),
-                                    ),
+                          builder: (context) => AlertDialog(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            title: const Text(
+                              "Confirm Action",
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            content: const Text(
+                              "Are you sure you want to add sales to inventory and reset data?",
+                            ),
+                            actions: [
+                              ElevatedButton(
+                                onPressed: () {
+                                  Navigator.of(context).pop();
+                                  addToInventorySales(context);
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Color(0xFF4B8673),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context),
-                                    style: TextButton.styleFrom(
-                                      foregroundColor: Colors.grey[700],
-                                    ),
-                                    child: const Text('Cancel'),
-                                  ),
-                                ],
+                                ),
+                                child: const Text(
+                                  'Confirm',
+                                  style: TextStyle(color: Colors.white),
+                                ),
                               ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('Cancel'),
+                              ),
+                            ],
+                          ),
                         );
                       },
                       style: ElevatedButton.styleFrom(
