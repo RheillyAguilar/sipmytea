@@ -23,8 +23,18 @@ class _CartPageState extends State<CartPage> {
 
   String _monthName(int month) {
     const months = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
     ];
     return months[month - 1];
   }
@@ -32,6 +42,7 @@ class _CartPageState extends State<CartPage> {
   Future<double?> _showAmountBottomSheet() async {
     final amountController = TextEditingController();
     return await showModalBottomSheet<double>(
+      backgroundColor: Colors.white,
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
@@ -40,7 +51,7 @@ class _CartPageState extends State<CartPage> {
       builder: (context) {
         return Padding(
           padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
             left: 24,
             right: 24,
             top: 24,
@@ -55,7 +66,9 @@ class _CartPageState extends State<CartPage> {
               const SizedBox(height: 20),
               TextField(
                 controller: amountController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 decoration: InputDecoration(
                   prefixText: '₱ ',
                   hintText: 'Enter amount',
@@ -74,10 +87,14 @@ class _CartPageState extends State<CartPage> {
                 children: [
                   ElevatedButton(
                     onPressed: () {
-                      final enteredAmount = double.tryParse(amountController.text);
+                      final enteredAmount = double.tryParse(
+                        amountController.text,
+                      );
                       if (enteredAmount == null) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Please enter a valid number.')),
+                          const SnackBar(
+                            content: Text('Please enter a valid number.'),
+                          ),
                         );
                       } else {
                         Navigator.pop(context, enteredAmount);
@@ -89,7 +106,10 @@ class _CartPageState extends State<CartPage> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Text('Confirm', style: TextStyle(color: Colors.white)),
+                    child: const Text(
+                      'Confirm',
+                      style: TextStyle(color: Colors.white),
+                    ),
                   ),
                   const SizedBox(width: 12),
                   TextButton(
@@ -112,9 +132,9 @@ class _CartPageState extends State<CartPage> {
   void _confirmOrder() async {
     if (cartItems.isEmpty) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Cart is already empty.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Cart is already empty.')));
       }
       return;
     }
@@ -125,7 +145,9 @@ class _CartPageState extends State<CartPage> {
       final total = totalCartPrice;
       if (paidAmount < total) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Entered amount is less than total price!')),
+          const SnackBar(
+            content: Text('Entered amount is less than total price!'),
+          ),
         );
         return;
       }
@@ -137,8 +159,13 @@ class _CartPageState extends State<CartPage> {
         builder: (context) {
           return AlertDialog(
             backgroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: const Text('Change', style: TextStyle(fontWeight: FontWeight.bold)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: const Text(
+              'Change',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             content: Text('Change: ₱${change.toStringAsFixed(2)}'),
             actions: [
               TextButton(
@@ -164,19 +191,137 @@ class _CartPageState extends State<CartPage> {
           'amount': item.totalPrice,
           'timestamp': FieldValue.serverTimestamp(),
         });
+
+      // ====== START: Stock Management ======
+
+        // PATTIES MANAGEMENT
+        final pattiesDoc = await firestore.collection('stock').doc('Patties').get();
+        if (pattiesDoc.exists) {
+          int currentQuantity = int.tryParse(pattiesDoc['quantity'].toString()) ?? 0;
+          int pattiesNeeded = 0; // Default to 0 (no deduction)
+
+          String productName = item.productName.toLowerCase();
+
+          if (productName.contains('combo')) {
+            pattiesNeeded = 1; // Combo needs 1 patty
+          } else if (productName.contains('beef')) {
+            pattiesNeeded = 2; // Regular beef needs 2 patties
+          }
+
+          if (pattiesNeeded > 0) {
+            int totalPattiesToDeduct = pattiesNeeded;
+            int updatedQuantity = currentQuantity - totalPattiesToDeduct;
+
+            if (updatedQuantity < 0) updatedQuantity = 0;
+            await firestore.collection('stock').doc('Patties').update({
+              'quantity': updatedQuantity.toString(),
+            });
+          }
+        }
+
+
+        // Cheese Stick
+        final cheeseStickDoc = await firestore.collection('stock').doc('Cheese Stick').get();
+        if(cheeseStickDoc.exists) {
+          int currentQuantity = int.tryParse(cheeseStickDoc['quantity'].toString()) ?? 0;
+          int cheeseNeeded = 0;
+          String productName = item.productName.toLowerCase();
+
+          if(productName.contains('cheesestick')) {
+            cheeseNeeded = 10;
+          } else if (productName.contains('combo')){
+            cheeseNeeded = 7;
+          }
+
+          if(cheeseNeeded > 0) {
+            int totalCheeseDeduct = cheeseNeeded;
+            int updatedQuantity = currentQuantity - totalCheeseDeduct;
+            if(updatedQuantity < 0) {
+              updatedQuantity = 0;}
+            await firestore.collection('stock').doc('Cheese Stick').update({
+                'quantity' : updatedQuantity.toString()
+            });}}
+
+
+        // Fries Management
+        final friesDoc = await firestore.collection('stock').doc('Fries').get();
+        if(friesDoc.exists) {
+          int currentQuantity = int.tryParse(friesDoc['quantity'].toString()) ?? 0;
+          int friesNeeded = 0;
+          String productName = item.productName.toLowerCase();
+
+          if(productName.contains('fries')) {
+            friesNeeded = 170;
+          } else if (productName.contains('combo')) {
+            friesNeeded = 120;
+          }
+
+          if(friesNeeded > 0 ) {
+            int totalFriesDeduct = friesNeeded;
+            int updatedQuantity = currentQuantity - totalFriesDeduct;
+            if(updatedQuantity < 0) {
+              updatedQuantity = 0;}
+            await firestore.collection('stock').doc('Fries').update({
+              'quantity': updatedQuantity.toString()
+            });
+          }
+        }
+
+
+        // Egg Management
+        Future<DocumentSnapshot?> _getExistingStockDoc(List<String> possibleNames) async {
+  final firestore = FirebaseFirestore.instance;
+  for (String name in possibleNames) {
+    final doc = await firestore.collection('stock').doc(name).get();
+    if (doc.exists) {
+      return doc;
+    }
+  }
+  return null; // none found
+}
+final eggDoc = await _getExistingStockDoc(['Egg', 'Itlog']);
+if (eggDoc != null) {
+  int currentEggQty = int.tryParse(eggDoc['quantity'].toString()) ?? 0;
+  int eggsNeeded = 0;
+
+  String productName = item.productName.toLowerCase();
+
+  if (productName.contains('egg')) {
+    eggsNeeded = 2;
+  }
+
+  if (eggsNeeded > 0) {
+    int updatedEggQty = currentEggQty - eggsNeeded;
+    if (updatedEggQty < 0) updatedEggQty = 0;
+
+    await eggDoc.reference.update({
+      'quantity': updatedEggQty.toString(),
+    });
+  }
+}
+
+
+
+
+
+
+      // ====== END: Stock Management ======
+        
       }
 
       if (mounted) {
         setState(() {
           sales.addAll(
-            cartItems.map((item) => SaleItem(item: item, dateTime: DateTime.now())),
+            cartItems.map(
+              (item) => SaleItem(item: item, dateTime: DateTime.now()),
+            ),
           );
           cartItems.clear();
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Order confirmed!')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Order confirmed!')));
 
         widget.onOrderConfirmed();
       }
@@ -229,18 +374,45 @@ class _CartPageState extends State<CartPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Name: ${item.productName}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                            Text(
+                              'Name: ${item.productName}',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                             const SizedBox(height: 4),
-                            Text('Size: ${item.size}', style: const TextStyle(fontSize: 15)),
+                            Text(
+                              'Size: ${item.size}',
+                              style: const TextStyle(fontSize: 15),
+                            ),
                             if (item.addOns.isNotEmpty) ...[
                               const SizedBox(height: 8),
-                              const Text("Add-ons:", style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
-                              ...item.addOns.map((addOn) => Text("- $addOn", style: const TextStyle(fontSize: 15))),
+                              const Text(
+                                "Add-ons:",
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              ...item.addOns.map(
+                                (addOn) => Text(
+                                  "- $addOn",
+                                  style: const TextStyle(fontSize: 15),
+                                ),
+                              ),
                             ],
                             const SizedBox(height: 8),
                             Align(
                               alignment: Alignment.centerRight,
-                              child: Text("₱${item.totalPrice.toStringAsFixed(2)}", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green)),
+                              child: Text(
+                                "₱${item.totalPrice.toStringAsFixed(2)}",
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.green,
+                                ),
+                              ),
                             ),
                           ],
                         ),
@@ -268,8 +440,21 @@ class _CartPageState extends State<CartPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Total:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                      Text('₱${totalCartPrice.toStringAsFixed(2)}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green)),
+                      const Text(
+                        'Total:',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        '₱${totalCartPrice.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -284,7 +469,14 @@ class _CartPageState extends State<CartPage> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: const Text('Confirm Order', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white)),
+                      child: const Text(
+                        'Confirm Order',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
                   ),
                 ],
