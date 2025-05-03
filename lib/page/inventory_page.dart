@@ -43,7 +43,6 @@ class _InventoryPageState extends State<InventoryPage> {
   Future<void> _loadData() async {
     await loadExpenses();
     await loadInventorySales();
-    await loadTodaysSales();
   }
 
   Future<void> loadExpenses() async {
@@ -103,15 +102,19 @@ class _InventoryPageState extends State<InventoryPage> {
   }
 
   Future<void> loadInventorySales() async {
-    final doc = await firestore
-        .collection('inventory')
-        .doc('sales')
-        .collection('daily_sales')
-        .doc(widget.username)
-        .get();
+  final doc = await firestore
+      .collection('inventory')
+      .doc('sales')
+      .collection('daily_sales')
+      .doc(widget.username)
+      .get();
 
-    if (doc.exists) {
-      final data = doc.data();
+  if (doc.exists) {
+    final data = doc.data();
+    final savedDate = data?['date'];
+
+    // Only load if the date matches the selected one
+    if (savedDate == today) {
       setState(() {
         inventoryTotalSales = (data?['totalSales'] ?? 0).toInt();
         silogCount = data?['silogCount'] ?? 0;
@@ -119,8 +122,20 @@ class _InventoryPageState extends State<InventoryPage> {
         regularCupCount = data?['regularCupCount'] ?? 0;
         largeCupCount = data?['largeCupCount'] ?? 0;
       });
+    } else {
+      setState(() {
+        inventoryTotalSales = 0;
+        silogCount = snackCount = regularCupCount = largeCupCount = 0;
+      });
     }
+  } else {
+    setState(() {
+      inventoryTotalSales = 0;
+      silogCount = snackCount = regularCupCount = largeCupCount = 0;
+    });
   }
+}
+
 
   Future<void> addToDailySales() async {
     final docRef = firestore
