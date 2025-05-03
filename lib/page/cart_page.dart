@@ -312,11 +312,12 @@ class _CartPageState extends State<CartPage> {
           }
         }
 
-        // Cups Management
+        // Cups and Staw Management
         final cupSize = item.size.toLowerCase();
         final cupDocName =
             {'regular': 'Regular Cups', 'large': 'Large Cups'}[cupSize];
         if (cupDocName != null) {
+          // Cups Deduction
           final cupDoc =
               await firestore.collection('stock').doc(cupDocName).get();
           if (cupDoc.exists) {
@@ -325,6 +326,19 @@ class _CartPageState extends State<CartPage> {
             if (updatedQty < 0) updatedQty = 0;
             await firestore.collection('stock').doc(cupDocName).update({
               'quantity': updatedQty.toString(),
+            });
+          }
+
+          //Straw Deduction
+          final strawDoc =
+              await firestore.collection('stock').doc('Straw').get();
+          if (strawDoc.exists) {
+            int currentStrawQty =
+                int.tryParse(strawDoc['quantity'].toString()) ?? 0;
+            int updatedStrawQty = currentStrawQty - 1;
+            if (updatedStrawQty < 0) updatedStrawQty = 0;
+            await firestore.collection('stock').doc('Straw').update({
+              'quantity': updatedStrawQty.toString(),
             });
           }
         }
