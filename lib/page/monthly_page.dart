@@ -74,27 +74,28 @@ class _MonthlyPageState extends State<MonthlyPage> {
     });
   }
 
-Future<void> _resetMonthlySales() async {
-  final formattedMonth = DateFormat('MMMM yyyy').format(selectedMonth);
+  Future<void> _resetMonthlySales() async {
+    final formattedMonth = DateFormat('MMMM yyyy').format(selectedMonth);
 
-  final snapshot = await FirebaseFirestore.instance
-      .collection('monthly_sales')
-      .where('date', isEqualTo: formattedMonth)
-      .get();
+    final snapshot =
+        await FirebaseFirestore.instance
+            .collection('monthly_sales')
+            .where('date', isEqualTo: formattedMonth)
+            .get();
 
-  for (var doc in snapshot.docs) {
-    await doc.reference.delete();
+    for (var doc in snapshot.docs) {
+      await doc.reference.delete();
+    }
+
+    setState(() {
+      monthlySales = 0.0;
+      dailySalesList.clear();
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Sales for $formattedMonth have been reset')),
+    );
   }
-
-  setState(() {
-    monthlySales = 0.0;
-    dailySalesList.clear();
-  });
-
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text('Sales for $formattedMonth have been reset')),
-  );
-}
 
   void _showResetConfirmationDialog() {
     showDialog(
