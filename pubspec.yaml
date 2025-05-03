@@ -71,6 +71,12 @@ flutter:
   assets:
      - assets/sipmytea_logo.png
      - assets/print_logo.png
+     - assets/profile1.jpg
+     - assets/profile2.jpg
+     - assets/profile3.jpg
+     - assets/profile4.jpg
+     - assets/profile5.jpg
+     
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see

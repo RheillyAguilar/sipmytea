@@ -1,6 +1,7 @@
 // ignore_for_file: use_build_context_synchronously
 
 import 'dart:convert';
+import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
@@ -26,6 +27,13 @@ class _LoginPageState extends State<LoginPage>
   late Animation<double> _fadeAnimation;
 
   List<Map<String, String>> _savedAccounts = [];
+  final List<String> _profileImages = [
+    'assets/profile1.jpg',
+    'assets/profile2.jpg',
+    'assets/profile3.jpg',
+    'assets/profile4.jpg',
+    'assets/profile5.jpg',
+  ];
 
   @override
   void initState() {
@@ -46,7 +54,6 @@ class _LoginPageState extends State<LoginPage>
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeIn));
 
     _controller.forward();
-
     _loadSavedAccounts();
   }
 
@@ -55,8 +62,19 @@ class _LoginPageState extends State<LoginPage>
     final saved = prefs.getStringList('savedAccounts') ?? [];
 
     setState(() {
-      _savedAccounts = saved.map((entry) => Map<String, String>.from(jsonDecode(entry))).toList();
+      _savedAccounts =
+          saved.map((entry) => Map<String, String>.from(jsonDecode(entry))).toList();
     });
+  }
+
+  Future<void> _removeAccount(String email) async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String> saved = prefs.getStringList('savedAccounts') ?? [];
+
+    saved.removeWhere((entry) => jsonDecode(entry)['email'] == email);
+    await prefs.setStringList('savedAccounts', saved);
+
+    _loadSavedAccounts();
   }
 
   Future<void> _login({String? email, String? password}) async {
@@ -78,14 +96,13 @@ class _LoginPageState extends State<LoginPage>
 
         if (_saveAccount) {
           List<String> saved = prefs.getStringList('savedAccounts') ?? [];
-
-          // Remove duplicates
           saved.removeWhere((e) => jsonDecode(e)['email'] == emailText);
 
           Map<String, String> newAccount = {
             'email': emailText,
             'password': passwordText,
             'username': username,
+            'image': _profileImages[Random().nextInt(_profileImages.length)],
           };
           saved.add(jsonEncode(newAccount));
           await prefs.setStringList('savedAccounts', saved);
@@ -109,27 +126,6 @@ class _LoginPageState extends State<LoginPage>
     }
   }
 
-  Future<void> _logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('rememberMe');
-    await prefs.remove('savedEmail');
-    await prefs.remove('savedPassword');
-    setState(() {
-      _emailController.clear();
-      _passwordController.clear();
-      _saveAccount = false;
-    });
-    _loadSavedAccounts(); // refresh UI
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    _emailController.dispose();
-    _passwordController.dispose();
-    super.dispose();
-  }
-
   Widget _buildSavedAccountsUI() {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -143,12 +139,44 @@ class _LoginPageState extends State<LoginPage>
                   email: account['email'],
                   password: account['password'],
                 ),
+                onLongPress: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Remove account'),
+                      content: Text('Do you want to remove ${account['username']}?'),
+                      actions: [
+                        ElevatedButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _removeAccount(account['email'] ?? '');
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Color(0xFF4B8673),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: BorderSide.none
+                            )
+                          ),
+                          child: const Text('Remove', style: TextStyle(color: Colors.white),),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.grey[700]
+                          ),
+                          child: const Text('Cancel'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
                 child: Column(
                   children: [
-                    const CircleAvatar(
+                    CircleAvatar(
                       radius: 35,
-                      backgroundColor: Color(0xFF4B8673),
-                      child: Icon(Iconsax.user, size: 40, color: Colors.white),
+                      backgroundImage:
+                          AssetImage(account['image'] ?? _profileImages[0]),
                     ),
                     const SizedBox(height: 8),
                     Text(account['username'] ?? ''),
@@ -159,7 +187,7 @@ class _LoginPageState extends State<LoginPage>
             GestureDetector(
               onTap: () {
                 setState(() {
-                  _savedAccounts.clear(); // hide saved UI, show login form
+                  _savedAccounts.clear();
                 });
               },
               child: Column(
@@ -178,6 +206,14 @@ class _LoginPageState extends State<LoginPage>
         ),
       ],
     );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
   }
 
   @override
