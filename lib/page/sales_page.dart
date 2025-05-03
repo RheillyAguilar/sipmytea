@@ -12,10 +12,21 @@ class SalesPage extends StatefulWidget {
 }
 
 class _SalesPageState extends State<SalesPage> {
-  final String formattedDate = DateFormat('MMMM d yyyy').format(DateTime.now());
+  String today = DateFormat('yyyy-MM-dd').format(DateTime.now());
   double totalSales = 0.0;
   List<Map<String, dynamic>> salesData = [];
   List<String> docIds = [];
+
+  String get formattedDateDisplay =>
+      DateFormat('MMMM d, yyyy').format(DateTime.parse(today));
+  String get formattedDate =>
+      DateFormat('MMMM d yyyy').format(DateTime.parse(today)); // Firestore doc ID
+
+  @override
+  void initState() {
+    super.initState();
+    fetchSalesData();
+  }
 
   Future<void> fetchSalesData() async {
     try {
@@ -38,6 +49,23 @@ class _SalesPageState extends State<SalesPage> {
       });
     } catch (e) {
       debugPrint("Error fetching sales: $e");
+    }
+  }
+
+  Future<void> _pickDate() async {
+    DateTime initialDate = DateTime.tryParse(today) ?? DateTime.now();
+    DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+
+    if (picked != null) {
+      setState(() {
+        today = DateFormat('yyyy-MM-dd').format(picked);
+      });
+      await fetchSalesData();
     }
   }
 
@@ -64,9 +92,6 @@ class _SalesPageState extends State<SalesPage> {
   }
 
   Future<void> addToInventorySales(BuildContext context) async {
-    final now = DateTime.now();
-    final formatted = DateFormat('yyyy-MM-dd').format(now);
-
     final userSalesRef = FirebaseFirestore.instance
         .collection('daily_sales')
         .doc(formattedDate)
@@ -98,9 +123,7 @@ class _SalesPageState extends State<SalesPage> {
 
       if (productName.contains('silog')) {
         silogCount++;
-      } else if (productName.contains(
-        RegExp(r'beef|cheese|egg|stick|fries|combo'),
-      )) {
+      } else if (productName.contains(RegExp(r'beef|cheese|egg|stick|fries|combo'))) {
         snackCount++;
       }
 
@@ -120,7 +143,7 @@ class _SalesPageState extends State<SalesPage> {
         'regularCupCount': (data['regularCupCount'] ?? 0) + regularCupCount,
         'largeCupCount': (data['largeCupCount'] ?? 0) + largeCupCount,
         'timestamp': FieldValue.serverTimestamp(),
-        'date': formatted,
+        'date': today,
       });
     } else {
       await inventoryDocRef.set({
@@ -130,7 +153,7 @@ class _SalesPageState extends State<SalesPage> {
         'regularCupCount': regularCupCount,
         'largeCupCount': largeCupCount,
         'timestamp': FieldValue.serverTimestamp(),
-        'date': formatted,
+        'date': today,
         'username': widget.username,
       });
     }
@@ -143,38 +166,32 @@ class _SalesPageState extends State<SalesPage> {
   }
 
   @override
-  void initState() {
-    super.initState();
-    fetchSalesData();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF9F9F9),
       appBar: AppBar(
-        title: const Text(
-          "Sales",
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        foregroundColor: Colors.black,
-      ),
+        title: const Text('Sales'),
+        actions: [
+          IconButton(
+            onPressed: _pickDate, 
+            icon: Icon(Icons.calendar_today))
+        ]),
       body: Column(
         children: [
           Expanded(
             child: salesData.isEmpty
                 ? const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Iconsax.money, size: 80, color: Colors.grey),
-                  SizedBox(height: 12),
-                  Text('No sales yet.', style: TextStyle(color: Colors.grey, fontSize: 16)),
-                ],
-              ),
-            )
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Iconsax.money, size: 80, color: Colors.grey),
+                        SizedBox(height: 12),
+                        Text('No sales yet.',
+                            style:
+                                TextStyle(color: Colors.grey, fontSize: 16)),
+                      ],
+                    ),
+                  )
                 : ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     itemCount: salesData.length,
@@ -197,28 +214,24 @@ class _SalesPageState extends State<SalesPage> {
                               ),
                               title: const Text("Confirm Deletion"),
                               content: const Text(
-                                "Are you sure you want to delete this sale?",
-                              ),
+                                  "Are you sure you want to delete this sale?"),
                               actions: [
                                 ElevatedButton(
-                                  onPressed: () => Navigator.of(context).pop(true),
+                                  onPressed: () =>
+                                      Navigator.of(context).pop(true),
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.red,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      side: BorderSide.none
-                                    )
-                                  ),
+                                      backgroundColor: Colors.red,
+                                      shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12))),
                                   child: const Text(
                                     "Delete",
                                     style: TextStyle(color: Colors.white),
                                   ),
                                 ),
                                 TextButton(
-                                  onPressed: () => Navigator.of(context).pop(false),
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: Colors.grey[700]
-                                  ),
+                                  onPressed: () =>
+                                      Navigator.of(context).pop(false),
                                   child: const Text("Cancel"),
                                 ),
                               ],
@@ -232,13 +245,15 @@ class _SalesPageState extends State<SalesPage> {
                           color: Colors.red,
                           padding: const EdgeInsets.symmetric(horizontal: 20),
                           alignment: Alignment.centerLeft,
-                          child: const Icon(Icons.delete, color: Colors.white),
+                          child:
+                              const Icon(Icons.delete, color: Colors.white),
                         ),
                         secondaryBackground: Container(
                           color: Colors.red,
                           padding: const EdgeInsets.symmetric(horizontal: 20),
                           alignment: Alignment.centerRight,
-                          child: const Icon(Icons.delete, color: Colors.white),
+                          child:
+                              const Icon(Icons.delete, color: Colors.white),
                         ),
                         child: Card(
                           shape: RoundedRectangleBorder(
@@ -275,7 +290,8 @@ class _SalesPageState extends State<SalesPage> {
                                   ...addOns.map(
                                     (addOn) => Text(
                                       "- $addOn",
-                                      style: const TextStyle(fontSize: 15),
+                                      style:
+                                          const TextStyle(fontSize: 15),
                                     ),
                                   ),
                                 ],
@@ -351,8 +367,7 @@ class _SalesPageState extends State<SalesPage> {
                               style: TextStyle(fontWeight: FontWeight.bold),
                             ),
                             content: const Text(
-                              "Are you sure you want to add sales to inventory and reset data?",
-                            ),
+                                "Are you sure you want to add sales to inventory and reset data?"),
                             actions: [
                               ElevatedButton(
                                 onPressed: () {
