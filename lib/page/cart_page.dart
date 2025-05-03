@@ -23,8 +23,18 @@ class _CartPageState extends State<CartPage> {
 
   String _monthName(int month) {
     const months = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
     ];
     return months[month - 1];
   }
@@ -32,6 +42,7 @@ class _CartPageState extends State<CartPage> {
   Future<double?> _showAmountBottomSheet() async {
     final amountController = TextEditingController();
     return await showModalBottomSheet<double>(
+      backgroundColor: Colors.white,
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
@@ -40,7 +51,7 @@ class _CartPageState extends State<CartPage> {
       builder: (context) {
         return Padding(
           padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
             left: 24,
             right: 24,
             top: 24,
@@ -55,7 +66,9 @@ class _CartPageState extends State<CartPage> {
               const SizedBox(height: 20),
               TextField(
                 controller: amountController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 decoration: InputDecoration(
                   prefixText: '₱ ',
                   hintText: 'Enter amount',
@@ -74,10 +87,14 @@ class _CartPageState extends State<CartPage> {
                 children: [
                   ElevatedButton(
                     onPressed: () {
-                      final enteredAmount = double.tryParse(amountController.text);
+                      final enteredAmount = double.tryParse(
+                        amountController.text,
+                      );
                       if (enteredAmount == null) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Please enter a valid number.')),
+                          const SnackBar(
+                            content: Text('Please enter a valid number.'),
+                          ),
                         );
                       } else {
                         Navigator.pop(context, enteredAmount);
@@ -89,7 +106,10 @@ class _CartPageState extends State<CartPage> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Text('Confirm', style: TextStyle(color: Colors.white)),
+                    child: const Text(
+                      'Confirm',
+                      style: TextStyle(color: Colors.white),
+                    ),
                   ),
                   const SizedBox(width: 12),
                   TextButton(
@@ -109,12 +129,25 @@ class _CartPageState extends State<CartPage> {
     );
   }
 
+  Future<DocumentSnapshot?> _getExistingStockDoc(
+    List<String> possibleNames,
+  ) async {
+    final firestore = FirebaseFirestore.instance;
+    for (String name in possibleNames) {
+      final doc = await firestore.collection('stock').doc(name).get();
+      if (doc.exists) {
+        return doc;
+      }
+    }
+    return null; // none found
+  }
+
   void _confirmOrder() async {
     if (cartItems.isEmpty) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Cart is already empty.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Cart is already empty.')));
       }
       return;
     }
@@ -125,7 +158,9 @@ class _CartPageState extends State<CartPage> {
       final total = totalCartPrice;
       if (paidAmount < total) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Entered amount is less than total price!')),
+          const SnackBar(
+            content: Text('Entered amount is less than total price!'),
+          ),
         );
         return;
       }
@@ -137,8 +172,13 @@ class _CartPageState extends State<CartPage> {
         builder: (context) {
           return AlertDialog(
             backgroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: const Text('Change', style: TextStyle(fontWeight: FontWeight.bold)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: const Text(
+              'Change',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             content: Text('Change: ₱${change.toStringAsFixed(2)}'),
             actions: [
               TextButton(
@@ -164,19 +204,148 @@ class _CartPageState extends State<CartPage> {
           'amount': item.totalPrice,
           'timestamp': FieldValue.serverTimestamp(),
         });
+
+      // ====== START: Stock Management ======
+
+        // PATTIES MANAGEMENT
+        final pattiesDoc =
+            await firestore.collection('stock').doc('Patties').get();
+        if (pattiesDoc.exists) {
+          final product = item.productName.toLowerCase();
+          final pattiesNeeded =
+              (['regular beef', 'cheese beef'].any(product.contains))
+                  ? 2
+                  : product.contains('combo')
+                  ? 1
+                  : 0;
+
+          if (pattiesNeeded > 0) {
+            int currentQty =
+                int.tryParse(pattiesDoc['quantity'].toString()) ?? 0;
+            int updatedQty = (currentQty - pattiesNeeded).clamp(0, currentQty);
+            await pattiesDoc.reference.update({
+              'quantity': updatedQty.toString(),
+            });
+          }
+        }
+
+        // Cheese Stick Management
+        final cheeseStickDoc =
+            await firestore.collection('stock').doc('Cheese Stick').get();
+        if (cheeseStickDoc.exists) {
+          final product = item.productName.toLowerCase();
+          final cheeseNeeded =
+              product.contains('cheesestick')
+                  ? 10
+                  : product.contains('combo')
+                  ? 7
+                  : 0;
+
+          if (cheeseNeeded > 0) {
+            int currentQty =
+                int.tryParse(cheeseStickDoc['quantity'].toString()) ?? 0;
+            int updatedQty = (currentQty - cheeseNeeded).clamp(0, currentQty);
+            await cheeseStickDoc.reference.update({
+              'quantity': updatedQty.toString(),
+            });
+          }
+        }
+
+        // Fries Management
+        final friesDoc = await firestore.collection('stock').doc('Fries').get();
+        if (friesDoc.exists) {
+          final product = item.productName.toLowerCase();
+          final friesNeeded =
+              product.contains('fries')
+                  ? 170
+                  : product.contains('combo')
+                  ? 120
+                  : 0;
+
+          if (friesNeeded > 0) {
+            int currentQty = int.tryParse(friesDoc['quantity'].toString()) ?? 0;
+            int updatedQty = (currentQty - friesNeeded).clamp(0, currentQty);
+            await friesDoc.reference.update({
+              'quantity': updatedQty.toString(),
+            });
+          }
+        }
+
+        // Egg Management
+        final eggDoc = await _getExistingStockDoc(['Egg', 'Itlog']);
+        if (eggDoc != null) {
+          final product = item.productName.toLowerCase();
+          final eggsNeeded =
+              product.contains('egg')
+                  ? 2
+                  : product.contains('silog')
+                  ? 1
+                  : 0;
+
+          if (eggsNeeded > 0) {
+            int currentQty = int.tryParse(eggDoc['quantity'].toString()) ?? 0;
+            int updatedQty = (currentQty - eggsNeeded).clamp(0, currentQty);
+            await eggDoc.reference.update({'quantity': updatedQty.toString()});
+          }
+        }
+
+        // Bans Management
+        final bansDoc = await firestore.collection('stock').doc('Bans').get();
+        if(bansDoc.exists) {
+          final product = item.productName.toLowerCase();
+          final bansNeeded = 
+          (['regular beef', 'cheese beef', 'egg sandwich'].any(product.contains)) 
+            ? 2
+            : product.contains('combo')
+            ? 1
+            : 0;
+
+          if(bansNeeded > 0) {
+            int currentQty = int.tryParse(bansDoc['quantity'].toString()) ?? 0;
+            int updatedQty = (currentQty - bansNeeded).clamp(0, currentQty);
+            await bansDoc.reference.update({
+              'quantity': updatedQty.toString()
+            });
+          }
+
+        }
+
+
+
+
+        // Cups Management
+        final cupSize = item.size.toLowerCase();
+        final cupDocName =
+            {'regular': 'Regular Cups', 'large': 'Large Cups'}[cupSize];
+        if (cupDocName != null) {
+          final cupDoc =
+              await firestore.collection('stock').doc(cupDocName).get();
+          if (cupDoc.exists) {
+            int currentQty = int.tryParse(cupDoc['quantity'].toString()) ?? 0;
+            int updatedQty = currentQty - 1;
+            if (updatedQty < 0) updatedQty = 0;
+            await firestore.collection('stock').doc(cupDocName).update({
+              'quantity': updatedQty.toString(),
+            });
+          }
+        }
       }
+
+      // ====== END: Stock Management ======
 
       if (mounted) {
         setState(() {
           sales.addAll(
-            cartItems.map((item) => SaleItem(item: item, dateTime: DateTime.now())),
+            cartItems.map(
+              (item) => SaleItem(item: item, dateTime: DateTime.now()),
+            ),
           );
           cartItems.clear();
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Order confirmed!')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Order confirmed!')));
 
         widget.onOrderConfirmed();
       }
@@ -229,18 +398,45 @@ class _CartPageState extends State<CartPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Name: ${item.productName}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                            Text(
+                              'Name: ${item.productName}',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                             const SizedBox(height: 4),
-                            Text('Size: ${item.size}', style: const TextStyle(fontSize: 15)),
+                            Text(
+                              'Size: ${item.size}',
+                              style: const TextStyle(fontSize: 15),
+                            ),
                             if (item.addOns.isNotEmpty) ...[
                               const SizedBox(height: 8),
-                              const Text("Add-ons:", style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
-                              ...item.addOns.map((addOn) => Text("- $addOn", style: const TextStyle(fontSize: 15))),
+                              const Text(
+                                "Add-ons:",
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              ...item.addOns.map(
+                                (addOn) => Text(
+                                  "- $addOn",
+                                  style: const TextStyle(fontSize: 15),
+                                ),
+                              ),
                             ],
                             const SizedBox(height: 8),
                             Align(
                               alignment: Alignment.centerRight,
-                              child: Text("₱${item.totalPrice.toStringAsFixed(2)}", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green)),
+                              child: Text(
+                                "₱${item.totalPrice.toStringAsFixed(2)}",
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.green,
+                                ),
+                              ),
                             ),
                           ],
                         ),
@@ -268,8 +464,21 @@ class _CartPageState extends State<CartPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Total:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                      Text('₱${totalCartPrice.toStringAsFixed(2)}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green)),
+                      const Text(
+                        'Total:',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        '₱${totalCartPrice.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -284,7 +493,14 @@ class _CartPageState extends State<CartPage> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: const Text('Confirm Order', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white)),
+                      child: const Text(
+                        'Confirm Order',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
                   ),
                 ],
