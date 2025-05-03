@@ -249,6 +249,10 @@ class _InventoryPageState extends State<InventoryPage> {
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF4b8673),
+               shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide.none
+                )
             ),
             child: const Text(
               'Confirm',

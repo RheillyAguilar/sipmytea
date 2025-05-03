@@ -104,6 +104,7 @@ class _CartPageState extends State<CartPage> {
                       backgroundColor: const Color(0xFF4B8673),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
+                        side: BorderSide.none,
                       ),
                     ),
                     child: const Text(
@@ -205,7 +206,7 @@ class _CartPageState extends State<CartPage> {
           'timestamp': FieldValue.serverTimestamp(),
         });
 
-      // ====== START: Stock Management ======
+        // ====== START: Stock Management ======
 
         // PATTIES MANAGEMENT
         final pattiesDoc =
@@ -291,27 +292,25 @@ class _CartPageState extends State<CartPage> {
 
         // Bans Management
         final bansDoc = await firestore.collection('stock').doc('Bans').get();
-        if(bansDoc.exists) {
+        if (bansDoc.exists) {
           final product = item.productName.toLowerCase();
-          final bansNeeded = 
-          (['regular beef', 'cheese beef', 'egg sandwich'].any(product.contains)) 
-            ? 2
-            : product.contains('combo')
-            ? 1
-            : 0;
+          final bansNeeded =
+              ([
+                    'regular beef',
+                    'cheese beef',
+                    'egg sandwich',
+                  ].any(product.contains))
+                  ? 2
+                  : product.contains('combo')
+                  ? 1
+                  : 0;
 
-          if(bansNeeded > 0) {
+          if (bansNeeded > 0) {
             int currentQty = int.tryParse(bansDoc['quantity'].toString()) ?? 0;
             int updatedQty = (currentQty - bansNeeded).clamp(0, currentQty);
-            await bansDoc.reference.update({
-              'quantity': updatedQty.toString()
-            });
+            await bansDoc.reference.update({'quantity': updatedQty.toString()});
           }
-
         }
-
-
-
 
         // Cups Management
         final cupSize = item.size.toLowerCase();

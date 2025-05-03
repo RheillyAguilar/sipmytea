@@ -19,8 +19,9 @@ class _SalesPageState extends State<SalesPage> {
 
   String get formattedDateDisplay =>
       DateFormat('MMMM d, yyyy').format(DateTime.parse(today));
-  String get formattedDate =>
-      DateFormat('MMMM d yyyy').format(DateTime.parse(today)); // Firestore doc ID
+  String get formattedDate => DateFormat(
+    'MMMM d yyyy',
+  ).format(DateTime.parse(today)); // Firestore doc ID
 
   @override
   void initState() {
@@ -30,11 +31,12 @@ class _SalesPageState extends State<SalesPage> {
 
   Future<void> fetchSalesData() async {
     try {
-      final salesSnapshot = await FirebaseFirestore.instance
-          .collection('daily_sales')
-          .doc(formattedDate)
-          .collection(widget.username)
-          .get();
+      final salesSnapshot =
+          await FirebaseFirestore.instance
+              .collection('daily_sales')
+              .doc(formattedDate)
+              .collection(widget.username)
+              .get();
 
       final data = salesSnapshot.docs.map((doc) => doc.data()).toList();
       final ids = salesSnapshot.docs.map((doc) => doc.id).toList();
@@ -123,7 +125,9 @@ class _SalesPageState extends State<SalesPage> {
 
       if (productName.contains('silog')) {
         silogCount++;
-      } else if (productName.contains(RegExp(r'beef|cheese|egg|stick|fries|combo'))) {
+      } else if (productName.contains(
+        RegExp(r'beef|cheese|egg|stick|fries|combo'),
+      )) {
         snackCount++;
       }
 
@@ -172,148 +176,161 @@ class _SalesPageState extends State<SalesPage> {
       appBar: AppBar(
         title: const Text('Sales'),
         actions: [
-          IconButton(
-            onPressed: _pickDate, 
-            icon: Icon(Icons.calendar_today))
-        ]),
+          IconButton(onPressed: _pickDate, icon: Icon(Icons.calendar_today)),
+        ],
+      ),
       body: Column(
         children: [
           Expanded(
-            child: salesData.isEmpty
-                ? const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Iconsax.money, size: 80, color: Colors.grey),
-                        SizedBox(height: 12),
-                        Text('No sales yet.',
-                            style:
-                                TextStyle(color: Colors.grey, fontSize: 16)),
-                      ],
-                    ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    itemCount: salesData.length,
-                    itemBuilder: (context, index) {
-                      final item = salesData[index];
-                      final productName = item['productName'] ?? 'Unknown';
-                      final size = item['size'] ?? 'N/A';
-                      final addOns = List<String>.from(item['addOns'] ?? []);
-                      final amount = item['amount']?.toDouble() ?? 0.0;
-
-                      return Dismissible(
-                        key: Key(docIds[index]),
-                        direction: DismissDirection.horizontal,
-                        confirmDismiss: (direction) async {
-                          return await showDialog(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              title: const Text("Confirm Deletion"),
-                              content: const Text(
-                                  "Are you sure you want to delete this sale?"),
-                              actions: [
-                                ElevatedButton(
-                                  onPressed: () =>
-                                      Navigator.of(context).pop(true),
-                                  style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.red,
-                                      shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(12))),
-                                  child: const Text(
-                                    "Delete",
-                                    style: TextStyle(color: Colors.white),
-                                  ),
-                                ),
-                                TextButton(
-                                  onPressed: () =>
-                                      Navigator.of(context).pop(false),
-                                  child: const Text("Cancel"),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                        onDismissed: (direction) {
-                          deleteSale(index);
-                        },
-                        background: Container(
-                          color: Colors.red,
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          alignment: Alignment.centerLeft,
-                          child:
-                              const Icon(Icons.delete, color: Colors.white),
-                        ),
-                        secondaryBackground: Container(
-                          color: Colors.red,
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          alignment: Alignment.centerRight,
-                          child:
-                              const Icon(Icons.delete, color: Colors.white),
-                        ),
-                        child: Card(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+            child:
+                salesData.isEmpty
+                    ? const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Iconsax.money, size: 80, color: Colors.grey),
+                          SizedBox(height: 12),
+                          Text(
+                            'No sales yet.',
+                            style: TextStyle(color: Colors.grey, fontSize: 16),
                           ),
-                          elevation: 4,
-                          margin: const EdgeInsets.symmetric(vertical: 8),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Name: $productName',
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
+                        ],
+                      ),
+                    )
+                    : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      itemCount: salesData.length,
+                      itemBuilder: (context, index) {
+                        final item = salesData[index];
+                        final productName = item['productName'] ?? 'Unknown';
+                        final size = item['size'] ?? 'N/A';
+                        final addOns = List<String>.from(item['addOns'] ?? []);
+                        final amount = item['amount']?.toDouble() ?? 0.0;
+
+                        return Dismissible(
+                          key: Key(docIds[index]),
+                          direction: DismissDirection.horizontal,
+                          confirmDismiss: (direction) async {
+                            return await showDialog(
+                              context: context,
+                              builder:
+                                  (context) => AlertDialog(
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      side: BorderSide.none,
+                                    ),
+                                    title: const Text("Confirm Deletion"),
+                                    content: const Text(
+                                      "Are you sure you want to delete this sale?",
+                                    ),
+                                    actions: [
+                                      ElevatedButton(
+                                        onPressed:
+                                            () =>
+                                                Navigator.of(context).pop(true),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.red,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                          ),
+                                        ),
+                                        child: const Text(
+                                          "Delete",
+                                          style: TextStyle(color: Colors.white),
+                                        ),
+                                      ),
+                                      TextButton(
+                                        onPressed:
+                                            () => Navigator.of(
+                                              context,
+                                            ).pop(false),
+                                        child: const Text("Cancel"),
+                                      ),
+                                    ],
                                   ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Size: $size',
-                                  style: const TextStyle(fontSize: 15),
-                                ),
-                                if (addOns.isNotEmpty) ...[
-                                  const SizedBox(height: 8),
-                                  const Text(
-                                    "Add-ons:",
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w500,
+                            );
+                          },
+                          onDismissed: (direction) {
+                            deleteSale(index);
+                          },
+                          background: Container(
+                            color: Colors.red,
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            alignment: Alignment.centerLeft,
+                            child: const Icon(
+                              Icons.delete,
+                              color: Colors.white,
+                            ),
+                          ),
+                          secondaryBackground: Container(
+                            color: Colors.red,
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            alignment: Alignment.centerRight,
+                            child: const Icon(
+                              Icons.delete,
+                              color: Colors.white,
+                            ),
+                          ),
+                          child: Card(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            elevation: 4,
+                            margin: const EdgeInsets.symmetric(vertical: 8),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Name: $productName',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
-                                  ...addOns.map(
-                                    (addOn) => Text(
-                                      "- $addOn",
-                                      style:
-                                          const TextStyle(fontSize: 15),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Size: $size',
+                                    style: const TextStyle(fontSize: 15),
+                                  ),
+                                  if (addOns.isNotEmpty) ...[
+                                    const SizedBox(height: 8),
+                                    const Text(
+                                      "Add-ons:",
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    ...addOns.map(
+                                      (addOn) => Text(
+                                        "- $addOn",
+                                        style: const TextStyle(fontSize: 15),
+                                      ),
+                                    ),
+                                  ],
+                                  const SizedBox(height: 8),
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: Text(
+                                      "₱${amount.toStringAsFixed(2)}",
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.green,
+                                      ),
                                     ),
                                   ),
                                 ],
-                                const SizedBox(height: 8),
-                                Align(
-                                  alignment: Alignment.centerRight,
-                                  child: Text(
-                                    "₱${amount.toStringAsFixed(2)}",
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.green,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
                           ),
-                        ),
-                      );
-                    },
-                  ),
+                        );
+                      },
+                    ),
           ),
           if (salesData.isNotEmpty)
             Container(
@@ -358,39 +375,41 @@ class _SalesPageState extends State<SalesPage> {
                       onPressed: () {
                         showDialog(
                           context: context,
-                          builder: (context) => AlertDialog(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            title: const Text(
-                              "Confirm Action",
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            content: const Text(
-                                "Are you sure you want to add sales to inventory and reset data?"),
-                            actions: [
-                              ElevatedButton(
-                                onPressed: () {
-                                  Navigator.of(context).pop();
-                                  addToInventorySales(context);
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Color(0xFF4B8673),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
+                          builder:
+                              (context) => AlertDialog(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                title: const Text(
+                                  "Confirm Action",
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                content: const Text(
+                                  "Are you sure you want to add sales to inventory and reset data?",
+                                ),
+                                actions: [
+                                  ElevatedButton(
+                                    onPressed: () {
+                                      Navigator.of(context).pop();
+                                      addToInventorySales(context);
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Color(0xFF4B8673),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                    child: const Text(
+                                      'Confirm',
+                                      style: TextStyle(color: Colors.white),
+                                    ),
                                   ),
-                                ),
-                                child: const Text(
-                                  'Confirm',
-                                  style: TextStyle(color: Colors.white),
-                                ),
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context),
+                                    child: const Text('Cancel'),
+                                  ),
+                                ],
                               ),
-                              TextButton(
-                                onPressed: () => Navigator.pop(context),
-                                child: const Text('Cancel'),
-                              ),
-                            ],
-                          ),
                         );
                       },
                       style: ElevatedButton.styleFrom(

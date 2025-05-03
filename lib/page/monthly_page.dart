@@ -49,10 +49,11 @@ class _MonthlyPageState extends State<MonthlyPage> {
   Future<void> _loadMonthlySales() async {
     final formattedMonth = DateFormat('MMMM yyyy').format(selectedMonth);
 
-    final snapshot = await FirebaseFirestore.instance
-        .collection('monthly_sales')
-        .where('date', isEqualTo: formattedMonth)
-        .get();
+    final snapshot =
+        await FirebaseFirestore.instance
+            .collection('monthly_sales')
+            .where('date', isEqualTo: formattedMonth)
+            .get();
 
     double totalAmount = 0.0;
     List<Map<String, dynamic>> tempList = [];
@@ -73,22 +74,27 @@ class _MonthlyPageState extends State<MonthlyPage> {
     });
   }
 
-  Future<void> _resetMonthlySales() async {
-    final snapshot = await FirebaseFirestore.instance.collection('monthly_sales').get();
+Future<void> _resetMonthlySales() async {
+  final formattedMonth = DateFormat('MMMM yyyy').format(selectedMonth);
 
-    for (var doc in snapshot.docs) {
-      await doc.reference.delete();
-    }
+  final snapshot = await FirebaseFirestore.instance
+      .collection('monthly_sales')
+      .where('date', isEqualTo: formattedMonth)
+      .get();
 
-    setState(() {
-      monthlySales = 0.0;
-      dailySalesList.clear();
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Monthly sales have been reset')),
-    );
+  for (var doc in snapshot.docs) {
+    await doc.reference.delete();
   }
+
+  setState(() {
+    monthlySales = 0.0;
+    dailySalesList.clear();
+  });
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text('Sales for $formattedMonth have been reset')),
+  );
+}
 
   void _showResetConfirmationDialog() {
     showDialog(
@@ -97,26 +103,29 @@ class _MonthlyPageState extends State<MonthlyPage> {
         return AlertDialog(
           title: const Text('Confirm Reset'),
           content: const Text('Are you sure you want to reset monthly sales?'),
-          backgroundColor: const Color(0xFFFAF3E0),
+          backgroundColor: Colors.white,
           actions: <Widget>[
-            TextButton(
-              child: const Text(
-                'Cancel',
-                style: TextStyle(color: Colors.black, fontSize: 16),
-              ),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-            TextButton(
-              child: const Text(
-                'Reset',
-                style: TextStyle(color: Colors.black, fontSize: 16),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xff4b8673),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide.none,
+                ),
               ),
               onPressed: () {
                 _resetMonthlySales();
                 Navigator.of(context).pop();
               },
+              child: const Text('Reset', style: TextStyle(color: Colors.white)),
+            ),
+            TextButton(
+              style: TextButton.styleFrom(foregroundColor: Colors.grey[700]),
+
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Cancel'),
             ),
           ],
         );
@@ -137,7 +146,10 @@ class _MonthlyPageState extends State<MonthlyPage> {
             children: [
               pw.Text(
                 'Monthly Sales Report',
-                style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold),
+                style: pw.TextStyle(
+                  fontSize: 24,
+                  fontWeight: pw.FontWeight.bold,
+                ),
               ),
               pw.SizedBox(height: 16),
               pw.Text(
@@ -177,7 +189,9 @@ class _MonthlyPageState extends State<MonthlyPage> {
   }
 
   pw.Widget _buildSalesGraph(List<Map<String, dynamic>> salesList) {
-    double maxAmount = salesList.map((s) => s['amount'] as double).reduce((a, b) => a > b ? a : b);
+    double maxAmount = salesList
+        .map((s) => s['amount'] as double)
+        .reduce((a, b) => a > b ? a : b);
 
     return pw.Container(
       decoration: pw.BoxDecoration(
@@ -189,32 +203,35 @@ class _MonthlyPageState extends State<MonthlyPage> {
         children: [
           pw.Row(
             crossAxisAlignment: pw.CrossAxisAlignment.end,
-            children: salesList.map((sale) {
-              double amount = sale['amount'] as double;
-              double barHeight = (amount / maxAmount) * 150;
+            children:
+                salesList.map((sale) {
+                  double amount = sale['amount'] as double;
+                  double barHeight = (amount / maxAmount) * 150;
 
-              return pw.Expanded(
-                child: pw.Column(
-                  mainAxisAlignment: pw.MainAxisAlignment.end,
-                  children: [
-                    pw.Text(
-                      '₱${amount.toStringAsFixed(0)}',
-                      style: pw.TextStyle(fontSize: 8),
+                  return pw.Expanded(
+                    child: pw.Column(
+                      mainAxisAlignment: pw.MainAxisAlignment.end,
+                      children: [
+                        pw.Text(
+                          '₱${amount.toStringAsFixed(0)}',
+                          style: pw.TextStyle(fontSize: 8),
+                        ),
+                        pw.Container(
+                          width: 10,
+                          height: barHeight,
+                          color: PdfColors.blueAccent,
+                        ),
+                        pw.SizedBox(height: 4),
+                        pw.Text(
+                          DateFormat('d').format(
+                            DateFormat('MMMM d yyyy').parse(sale['date']),
+                          ),
+                          style: pw.TextStyle(fontSize: 8),
+                        ),
+                      ],
                     ),
-                    pw.Container(
-                      width: 10,
-                      height: barHeight,
-                      color: PdfColors.blueAccent,
-                    ),
-                    pw.SizedBox(height: 4),
-                    pw.Text(
-                      DateFormat('d').format(DateFormat('MMMM d yyyy').parse(sale['date'])),
-                      style: pw.TextStyle(fontSize: 8),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
+                  );
+                }).toList(),
           ),
         ],
       ),
@@ -230,162 +247,177 @@ class _MonthlyPageState extends State<MonthlyPage> {
         title: const Text('Monthly Sales'),
         actions: [
           IconButton(
-            onPressed: _pickMonth, 
-            icon: const Icon(Icons.calendar_today))
+            onPressed: _pickMonth,
+            icon: const Icon(Icons.calendar_today),
+          ),
         ],
       ),
       backgroundColor: Colors.grey[200],
-      body: hasSales
-          ? Column(
-              children: [
-                const SizedBox(height: 10),
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: dailySalesList.length,
-                    itemBuilder: (context, index) {
-                      final sale = dailySalesList[index];
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                        child: Card(
-                          elevation: 3,
-                          color: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+      body:
+          hasSales
+              ? Column(
+                children: [
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: dailySalesList.length,
+                      itemBuilder: (context, index) {
+                        final sale = dailySalesList[index];
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
                           ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(10),
-                            child: ListTile(
-                              title: Text(
-                                sale['date'],
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              subtitle: const Padding(
-                                padding: EdgeInsets.only(top: 4),
-                                child: Text(
-                                  'Daily Sales:',
-                                  style: TextStyle(
+                          child: Card(
+                            elevation: 3,
+                            color: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(10),
+                              child: ListTile(
+                                title: Text(
+                                  sale['date'],
+                                  style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                              ),
-                              trailing: Text(
-                                "₱${(sale['amount'] as double).toStringAsFixed(2)}",
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black87,
+                                subtitle: const Padding(
+                                  padding: EdgeInsets.only(top: 4),
+                                  child: Text(
+                                    'Daily Sales:',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                trailing: Text(
+                                  "₱${(sale['amount'] as double).toStringAsFixed(2)}",
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withOpacity(0.2),
-                        spreadRadius: 2,
-                        blurRadius: 6,
-                        offset: const Offset(0, -2),
-                      ),
-                    ],
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(16),
-                      topRight: Radius.circular(16),
+                        );
+                      },
                     ),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Total:',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            '₱${monthlySales.toStringAsFixed(2)}',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF2E7D32),
-                            ),
-                          ),
-                        ],
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.2),
+                          spreadRadius: 2,
+                          blurRadius: 6,
+                          offset: const Offset(0, -2),
+                        ),
+                      ],
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(16),
+                        topRight: Radius.circular(16),
                       ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: _downloadPdf,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF4CAF50),
-                                padding: const EdgeInsets.symmetric(vertical: 14),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 16,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Total:',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
                               ),
-                              child: const Text(
-                                'Download PDF',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.white,
+                            ),
+                            Text(
+                              '₱${monthlySales.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF2E7D32),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: _downloadPdf,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF4CAF50),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'Download PDF',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.white,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: _showResetConfirmationDialog,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red[400],
-                                padding: const EdgeInsets.symmetric(vertical: 14),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: _showResetConfirmationDialog,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red[400],
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
                                 ),
-                              ),
-                              child: const Text(
-                                'Reset',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.white,
+                                child: const Text(
+                                  'Reset',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.white,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ],
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            )
-          : const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Iconsax.calendar, size: 80, color: Colors.grey),
-                  SizedBox(height: 12),
-                  Text('No monthly sales yet.', style: TextStyle(color: Colors.grey, fontSize: 16)),
                 ],
+              )
+              : const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Iconsax.calendar, size: 80, color: Colors.grey),
+                    SizedBox(height: 12),
+                    Text(
+                      'No monthly sales yet.',
+                      style: TextStyle(color: Colors.grey, fontSize: 16),
+                    ),
+                  ],
+                ),
               ),
-            ),
     );
   }
 }
