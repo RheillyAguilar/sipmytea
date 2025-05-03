@@ -18,6 +18,7 @@ class MonthlyPage extends StatefulWidget {
 
 class _MonthlyPageState extends State<MonthlyPage> {
   List<Map<String, dynamic>> dailySalesList = [];
+  DateTime selectedMonth = DateTime.now();
 
   @override
   void initState() {
@@ -25,8 +26,28 @@ class _MonthlyPageState extends State<MonthlyPage> {
     _loadMonthlySales();
   }
 
+  Future<void> _pickMonth() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: selectedMonth,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(now.year + 1),
+      helpText: 'Select Month',
+      fieldHintText: 'Month/Year',
+      initialEntryMode: DatePickerEntryMode.calendarOnly,
+    );
+
+    if (picked != null) {
+      setState(() {
+        selectedMonth = DateTime(picked.year, picked.month);
+      });
+      _loadMonthlySales();
+    }
+  }
+
   Future<void> _loadMonthlySales() async {
-    final formattedMonth = DateFormat('MMMM yyyy').format(DateTime.now());
+    final formattedMonth = DateFormat('MMMM yyyy').format(selectedMonth);
 
     final snapshot = await FirebaseFirestore.instance
         .collection('monthly_sales')
@@ -38,7 +59,7 @@ class _MonthlyPageState extends State<MonthlyPage> {
 
     for (var doc in snapshot.docs) {
       final data = doc.data();
-      final docId = doc.id; // e.g., "April 7 2025"
+      final docId = doc.id;
       if (data.containsKey('amount')) {
         double amount = (data['amount'] as num).toDouble();
         totalAmount += amount;
@@ -170,7 +191,7 @@ class _MonthlyPageState extends State<MonthlyPage> {
             crossAxisAlignment: pw.CrossAxisAlignment.end,
             children: salesList.map((sale) {
               double amount = sale['amount'] as double;
-              double barHeight = (amount / maxAmount) * 150; // max bar height
+              double barHeight = (amount / maxAmount) * 150;
 
               return pw.Expanded(
                 child: pw.Column(
@@ -205,7 +226,14 @@ class _MonthlyPageState extends State<MonthlyPage> {
     bool hasSales = monthlySales > 0.0;
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Monthly Sales")),
+      appBar: AppBar(
+        title: const Text('Monthly Sales'),
+        actions: [
+          IconButton(
+            onPressed: _pickMonth, 
+            icon: const Icon(Icons.calendar_today))
+        ],
+      ),
       backgroundColor: Colors.grey[200],
       body: hasSales
           ? Column(
@@ -354,10 +382,10 @@ class _MonthlyPageState extends State<MonthlyPage> {
                 children: [
                   Icon(Iconsax.calendar, size: 80, color: Colors.grey),
                   SizedBox(height: 12),
-                  Text('No calendar yet.', style: TextStyle(color: Colors.grey, fontSize: 16)),
+                  Text('No monthly sales yet.', style: TextStyle(color: Colors.grey, fontSize: 16)),
                 ],
               ),
-            )
+            ),
     );
   }
 }
