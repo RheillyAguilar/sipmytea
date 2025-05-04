@@ -91,6 +91,7 @@ class _CartPageState extends State<CartPage> {
                         amountController.text,
                       );
                       if (enteredAmount == null) {
+                        Navigator.pop(context);
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text('Please enter a valid number.'),

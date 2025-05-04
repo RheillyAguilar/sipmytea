@@ -69,48 +69,51 @@ class _StockPageState extends State<StockPage> {
                 ),
                 const SizedBox(height: 24),
                 ElevatedButton(
-                  onPressed: () async {
-                    String name = _nameController.text.trim();
-                    String number = _numberController.text.trim();
-                    String limit = _limitController.text.trim();
+  onPressed: () async {
+  String name = _nameController.text.trim();
+  String number = _numberController.text.trim();
+  String limit = _limitController.text.trim();
 
-                    if (name.isNotEmpty && number.isNotEmpty) {
-                      final docRef = FirebaseFirestore.instance
-                          .collection('stock')
-                          .doc(name);
-                      final doc = await docRef.get();
+  if (name.isEmpty || number.isEmpty || limit.isEmpty) {
+    Navigator.pop(context); // Close the bottom sheet first
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Please input all fields'),
+        backgroundColor: Colors.black,
+      ),
+    );
+    return;
+  }
 
-                      int inputQuantity = int.tryParse(number) ?? 0;
+  final docRef = FirebaseFirestore.instance.collection('stock').doc(name);
+  final doc = await docRef.get();
 
-                      if (docId != null) {
-                        // Edit mode
-                        await docRef.set({
-                          'name': name,
-                          'quantity': inputQuantity.toString(),
-                          'limit': limit,
-                        });
-                      } else {
-                        // Add mode
-                        int currentQuantity = 0;
-                        if (doc.exists) {
-                          currentQuantity =
-                              int.tryParse(doc['quantity'].toString()) ?? 0;
-                        }
+  int inputQuantity = int.tryParse(number) ?? 0;
 
-                        await docRef.set({
-                          'name': name,
-                          'quantity':
-                              (currentQuantity + inputQuantity).toString(),
-                          'limit': limit,
-                        });
-                      }
+  if (docId != null) {
+    await docRef.set({
+      'name': name,
+      'quantity': inputQuantity.toString(),
+      'limit': limit,
+    });
+  } else {
+    int currentQuantity = 0;
+    if (doc.exists) {
+      currentQuantity = int.tryParse(doc['quantity'].toString()) ?? 0;
+    }
 
-                      Navigator.pop(context);
-                      _nameController.clear();
-                      _numberController.clear();
-                      _limitController.clear();
-                    }
-                  },
+    await docRef.set({
+      'name': name,
+      'quantity': (currentQuantity + inputQuantity).toString(),
+      'limit': limit,
+    });
+  }
+
+  Navigator.pop(context);
+  _nameController.clear();
+  _numberController.clear();
+  _limitController.clear();
+},
                   style: ElevatedButton.styleFrom(
                     minimumSize: const Size(double.infinity, 50),
                     backgroundColor: const Color(0xFF4B8673),
