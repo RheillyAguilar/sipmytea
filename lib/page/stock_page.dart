@@ -13,14 +13,17 @@ class StockPage extends StatefulWidget {
 class _StockPageState extends State<StockPage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _numberController = TextEditingController();
+  final TextEditingController _limitController = TextEditingController();
 
   void _showAddStockSheet({
     String? docId,
     String? initialName,
     String? initialQuantity,
+    String? initialLimit,
   }) {
     _nameController.text = initialName ?? '';
     _numberController.text = initialQuantity ?? '';
+    _limitController.text = initialLimit ?? '';
 
     showModalBottomSheet(
       context: context,
@@ -58,11 +61,18 @@ class _StockPageState extends State<StockPage> {
                   keyboardType: TextInputType.number,
                   decoration: _inputDecoration('Quantity'),
                 ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _limitController,
+                  keyboardType: TextInputType.number,
+                  decoration: _inputDecoration('Limit'),
+                ),
                 const SizedBox(height: 24),
                 ElevatedButton(
                   onPressed: () async {
                     String name = _nameController.text.trim();
                     String number = _numberController.text.trim();
+                    String limit = _limitController.text.trim();
 
                     if (name.isNotEmpty && number.isNotEmpty) {
                       final docRef = FirebaseFirestore.instance
@@ -73,31 +83,34 @@ class _StockPageState extends State<StockPage> {
                       int inputQuantity = int.tryParse(number) ?? 0;
 
                       if (docId != null) {
-                        // Edit mode: update to the new quantity directly
+                        // Edit mode
                         await docRef.set({
                           'name': name,
                           'quantity': inputQuantity.toString(),
+                          'limit': limit,
                         });
                       } else {
-                        // Add mode: sum with existing if it exists
+                        // Add mode
                         int currentQuantity = 0;
                         if (doc.exists) {
-                          currentQuantity = int.tryParse(doc['quantity'].toString()) ?? 0;
+                          currentQuantity =
+                              int.tryParse(doc['quantity'].toString()) ?? 0;
                         }
 
                         await docRef.set({
                           'name': name,
                           'quantity':
                               (currentQuantity + inputQuantity).toString(),
+                          'limit': limit,
                         });
                       }
 
                       Navigator.pop(context);
                       _nameController.clear();
                       _numberController.clear();
+                      _limitController.clear();
                     }
                   },
-
                   style: ElevatedButton.styleFrom(
                     minimumSize: const Size(double.infinity, 50),
                     backgroundColor: const Color(0xFF4B8673),
@@ -213,25 +226,51 @@ class _StockPageState extends State<StockPage> {
               final stock = stocks[index];
               final name = stock['name'];
               final quantity = stock['quantity'];
+              final limit = stock['limit'] ?? '';
 
               return Slidable(
                 key: ValueKey(name),
-                startActionPane: _buildActionPane(stock.id, name, quantity),
-                endActionPane: _buildActionPane(stock.id, name, quantity),
+                startActionPane: _buildActionPane(
+                  stock.id,
+                  name,
+                  quantity,
+                  limit,
+                ),
+                endActionPane: _buildActionPane(
+                  stock.id,
+                  name,
+                  quantity,
+                  limit,
+                ),
                 child: Card(
+                  color:
+                      (int.tryParse(quantity.toString()) ?? 0) <=
+                              (int.tryParse(limit.toString()) ?? 0)
+                          ? Colors.red.shade100
+                          : const Color(0xFFF0F5F2),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
                   margin: const EdgeInsets.only(bottom: 16),
                   elevation: 3,
                   child: ListTile(
-                    leading: const Icon(Iconsax.box, color: Color(0xFF4B8673)),
+                    leading: Icon(
+                      (int.tryParse(quantity.toString()) ?? 0) <=
+                              (int.tryParse(limit.toString()) ?? 0)
+                          ? Icons.warning_amber_rounded
+                          : Iconsax.box,
+                      color:
+                          (int.tryParse(quantity.toString()) ?? 0) <=
+                                  (int.tryParse(limit.toString()) ?? 0)
+                              ? Colors.red
+                              : const Color(0xFF4B8673),
+                    ),
                     title: Text(
                       name ?? '',
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     subtitle: Text(
-                      'Quantity: $quantity',
+                      'Quantity: $quantity\nLimit: $limit',
                       style: const TextStyle(color: Colors.grey),
                     ),
                   ),
@@ -249,7 +288,12 @@ class _StockPageState extends State<StockPage> {
     );
   }
 
-  ActionPane _buildActionPane(String docId, String name, String quantity) {
+  ActionPane _buildActionPane(
+    String docId,
+    String name,
+    String quantity,
+    String limit,
+  ) {
     return ActionPane(
       motion: const DrawerMotion(),
       children: [
@@ -259,6 +303,7 @@ class _StockPageState extends State<StockPage> {
                 docId: docId,
                 initialName: name,
                 initialQuantity: quantity,
+                initialLimit: limit,
               ),
           backgroundColor: Colors.blueAccent,
           foregroundColor: Colors.white,
@@ -280,6 +325,7 @@ class _StockPageState extends State<StockPage> {
   void dispose() {
     _nameController.dispose();
     _numberController.dispose();
+    _limitController.dispose();
     super.dispose();
   }
 }

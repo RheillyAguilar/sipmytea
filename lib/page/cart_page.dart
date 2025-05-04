@@ -186,7 +186,7 @@ class _CartPageState extends State<CartPage> {
                     ),
                     child: const Text('Acknowledge'),
                     onPressed: () => Navigator.of(context).pop(),
-                  )
+                  ),
                 ),
               ],
             ),
@@ -275,7 +275,8 @@ class _CartPageState extends State<CartPage> {
         // ====== START: Stock Management ======
 
         // PATTIES MANAGEMENT
-        final pattiesDoc = await firestore.collection('stock').doc('Patties').get();
+        final pattiesDoc =
+            await firestore.collection('stock').doc('Patties').get();
         if (pattiesDoc.exists) {
           final product = item.productName.toLowerCase();
           final pattiesNeeded =
@@ -286,18 +287,22 @@ class _CartPageState extends State<CartPage> {
                   : 0;
           int currentQty = int.tryParse(pattiesDoc['quantity'].toString()) ?? 0;
           int updatedQty = (currentQty - pattiesNeeded).clamp(0, currentQty);
+          int limit = int.tryParse(pattiesDoc['limit'].toString()) ?? 0;
+
           if (pattiesNeeded > 0) {
             await pattiesDoc.reference.update({
               'quantity': updatedQty.toString(),
             });
           }
-          if (updatedQty <= 50) {
+
+          if (updatedQty <= limit) {
             await _handleWarning('Patties', updatedQty);
           }
         }
 
-        // Cheese Stick Management
-        final cheeseStickDoc = await firestore.collection('stock').doc('Cheese Stick').get();
+        // CHEESE STICK MANAGEMENT
+        final cheeseStickDoc =
+            await firestore.collection('stock').doc('Cheese Stick').get();
         if (cheeseStickDoc.exists) {
           final product = item.productName.toLowerCase();
           final cheeseNeeded =
@@ -307,19 +312,23 @@ class _CartPageState extends State<CartPage> {
                   ? 7
                   : 0;
           int currentQty =
-          int.tryParse(cheeseStickDoc['quantity'].toString()) ?? 0;
+              int.tryParse(cheeseStickDoc['quantity'].toString()) ?? 0;
           int updatedQty = (currentQty - cheeseNeeded).clamp(0, currentQty);
+          int limit =
+              int.tryParse(cheeseStickDoc['limit'].toString()) ?? 0;
+
           if (cheeseNeeded > 0) {
             await cheeseStickDoc.reference.update({
               'quantity': updatedQty.toString(),
             });
           }
-          if (updatedQty <= 50) {
+
+          if (updatedQty <= limit) {
             await _handleWarning('Cheese Stick', updatedQty);
           }
         }
 
-        // Fries Management
+        // FRIES MANAGEMENT
         final friesDoc = await firestore.collection('stock').doc('Fries').get();
         if (friesDoc.exists) {
           final product = item.productName.toLowerCase();
@@ -331,17 +340,21 @@ class _CartPageState extends State<CartPage> {
                   : 0;
           int currentQty = int.tryParse(friesDoc['quantity'].toString()) ?? 0;
           int updatedQty = (currentQty - friesNeeded).clamp(0, currentQty);
+          int limit =
+              int.tryParse(friesDoc['limit'].toString()) ?? 0;
+
           if (friesNeeded > 0) {
             await friesDoc.reference.update({
               'quantity': updatedQty.toString(),
             });
           }
-          if (updatedQty <= 500) {
+
+          if (updatedQty <= limit) {
             await _handleWarning('Fries', updatedQty);
           }
         }
 
-        // Egg Management
+        // EGG MANAGEMENT
         final eggDoc = await _getExistingStockDoc(['Egg', 'Itlog']);
         if (eggDoc != null) {
           final product = item.productName.toLowerCase();
@@ -351,14 +364,20 @@ class _CartPageState extends State<CartPage> {
                   : product.contains('silog')
                   ? 1
                   : 0;
+          int currentQty = int.tryParse(eggDoc['quantity'].toString()) ?? 0;
+          int updatedQty = (currentQty - eggsNeeded).clamp(0, currentQty);
+          int limit = int.tryParse(eggDoc['limit'].toString()) ?? 0;
+
           if (eggsNeeded > 0) {
-            int currentQty = int.tryParse(eggDoc['quantity'].toString()) ?? 0;
-            int updatedQty = (currentQty - eggsNeeded).clamp(0, currentQty);
             await eggDoc.reference.update({'quantity': updatedQty.toString()});
+          }
+
+          if (updatedQty <= limit) {
+            await _handleWarning(eggDoc.id, updatedQty);
           }
         }
 
-        // Bans Management
+        // BANS MANAGEMENT
         final bansDoc = await firestore.collection('stock').doc('Bans').get();
         if (bansDoc.exists) {
           final product = item.productName.toLowerCase();
@@ -374,43 +393,55 @@ class _CartPageState extends State<CartPage> {
                   : 0;
           int currentQty = int.tryParse(bansDoc['quantity'].toString()) ?? 0;
           int updatedQty = (currentQty - bansNeeded).clamp(0, currentQty);
+          int limit = int.tryParse(bansDoc['limit'].toString()) ?? 0;
+
           if (bansNeeded > 0) {
             await bansDoc.reference.update({'quantity': updatedQty.toString()});
           }
-          if (updatedQty <= 9) {
+
+          if (updatedQty <= limit) {
             await _handleWarning('Bans', updatedQty);
           }
         }
 
-        // Cups and Straw Management
+        // CUPS AND STRAW MANAGEMENT
         final cupSize = item.size.toLowerCase();
-        final cupDocName = {'regular': 'Regular Cups', 'large': 'Large Cups'}[cupSize];
+        final cupDocName =
+            {'regular': 'Regular Cups', 'large': 'Large Cups'}[cupSize];
         if (cupDocName != null) {
           // Cups Deduction
-          final cupDoc = await firestore.collection('stock').doc(cupDocName).get();
+          final cupDoc =
+              await firestore.collection('stock').doc(cupDocName).get();
           int currentQty = int.tryParse(cupDoc['quantity'].toString()) ?? 0;
-          int updatedQty = currentQty - 1;
-          if (updatedQty < 0) updatedQty = 0;
+          int updatedQty = (currentQty - 1).clamp(0, currentQty);
+          int limit = int.tryParse(cupDoc['limit'].toString()) ?? 0;
+
           if (cupDoc.exists) {
             await firestore.collection('stock').doc(cupDocName).update({
               'quantity': updatedQty.toString(),
             });
           }
-          if (updatedQty < 50) {
+
+          if (updatedQty <= limit) {
             await _handleWarning(cupDocName, updatedQty);
           }
 
           // Straw Deduction
-          final strawDoc = await firestore.collection('stock').doc('Straw').get();
-          int currentStrawQty = int.tryParse(strawDoc['quantity'].toString()) ?? 0;
-          int updatedStrawQty = currentStrawQty - 1;
+          final strawDoc =
+              await firestore.collection('stock').doc('Straw').get();
+          int currentStrawQty =
+              int.tryParse(strawDoc['quantity'].toString()) ?? 0;
+          int updatedStrawQty = (currentStrawQty - 1).clamp(0, currentStrawQty);
+          int strawLimit =
+              int.tryParse(strawDoc['limit'].toString()) ?? 0;
+
           if (strawDoc.exists) {
-            if (updatedStrawQty < 0) updatedStrawQty = 0;
             await firestore.collection('stock').doc('Straw').update({
               'quantity': updatedStrawQty.toString(),
             });
           }
-          if (updatedStrawQty <= 50) {
+
+          if (updatedStrawQty <= strawLimit) {
             await _handleWarning('Straw', updatedStrawQty);
           }
         }
