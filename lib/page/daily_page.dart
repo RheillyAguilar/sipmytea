@@ -120,12 +120,13 @@ class _DailyPageState extends State<DailyPage> {
 
     if (confirm != true) return;
 
-    final String formattedDate = DateFormat('MMMM d yyyy').format(DateTime.now());
-    final String monthKey = DateFormat('MMMM yyyy').format(DateTime.now());
+    // ✅ Use selected date instead of DateTime.now()
+    final DateTime selectedDate = DateTime.parse(today);
+    final String formattedDate = DateFormat('MMMM d yyyy').format(selectedDate);
+    final String monthKey = DateFormat('MMMM yyyy').format(selectedDate);
     final double netSales = (data['netSales'] ?? 0).toDouble();
 
     final monthlyDocRef = firestore.collection('monthly_sales').doc(formattedDate);
-
     final monthlyDocSnap = await monthlyDocRef.get();
 
     if (monthlyDocSnap.exists) {
@@ -175,15 +176,15 @@ class _DailyPageState extends State<DailyPage> {
         child: widget.isAdmin
             ? allDailyData.isEmpty
                 ? const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Iconsax.graph, size: 80, color: Colors.grey),
-                  SizedBox(height: 12),
-                  Text('No daily summaries yet.', style: TextStyle(color: Colors.grey, fontSize: 16)),
-                ],
-              ),
-            )
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Iconsax.graph, size: 80, color: Colors.grey),
+                        SizedBox(height: 12),
+                        Text('No daily summaries yet.', style: TextStyle(color: Colors.grey, fontSize: 16)),
+                      ],
+                    ),
+                  )
                 : ListView(
                     children: allDailyData.entries
                         .map((entry) => _buildUserSummaryCard(entry.key, entry.value))
@@ -250,8 +251,7 @@ class _DailyPageState extends State<DailyPage> {
               ],
             ),
             const SizedBox(height: 10),
-            if (expenses.isNotEmpty)
-              _buildExpenseCard(expenses, totalExpenses),
+            if (expenses.isNotEmpty) _buildExpenseCard(expenses, totalExpenses),
             const SizedBox(height: 10),
             Text(
               'Daily Sales: ₱${netSales.toStringAsFixed(2)}',

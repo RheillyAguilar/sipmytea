@@ -1,4 +1,3 @@
-// Imports
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
@@ -14,7 +13,7 @@ class InventoryPage extends StatefulWidget {
 
 class _InventoryPageState extends State<InventoryPage> {
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
-  late final String today;
+  late String today;
 
   int totalSales = 0;
   int inventoryTotalSales = 0;
@@ -31,15 +30,19 @@ class _InventoryPageState extends State<InventoryPage> {
   void initState() {
     super.initState();
     today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    loadTodaysSales();
-    loadInventorySales();
-    loadExpenses();
+    _loadData();
   }
 
   void clearSalesStats() {
     setState(() {
-      totalSales = silogCount = snackCount = regularCupCount = largeCupCount = 0;
+      totalSales =
+          silogCount = snackCount = regularCupCount = largeCupCount = 0;
     });
+  }
+
+  Future<void> _loadData() async {
+    await loadExpenses();
+    await loadInventorySales();
   }
 
   Future<void> loadExpenses() async {
@@ -99,24 +102,40 @@ class _InventoryPageState extends State<InventoryPage> {
   }
 
   Future<void> loadInventorySales() async {
-    final doc = await firestore
-        .collection('inventory')
-        .doc('sales')
-        .collection('daily_sales')
-        .doc(widget.username)
-        .get();
+  final doc = await firestore
+      .collection('inventory')
+      .doc('sales')
+      .collection('daily_sales')
+      .doc(widget.username)
+      .get();
 
-    if (doc.exists) {
-      final data = doc.data();
-      inventoryTotalSales = (data?['totalSales'] ?? 0).toInt();
-      silogCount = data?['silogCount'] ?? 0;
-      snackCount = data?['snackCount'] ?? 0;
-      regularCupCount = data?['regularCupCount'] ?? 0;
-      largeCupCount = data?['largeCupCount'] ?? 0;
+  if (doc.exists) {
+    final data = doc.data();
+    final savedDate = data?['date'];
 
-      setState(() {});
+    // Only load if the date matches the selected one
+    if (savedDate == today) {
+      setState(() {
+        inventoryTotalSales = (data?['totalSales'] ?? 0).toInt();
+        silogCount = data?['silogCount'] ?? 0;
+        snackCount = data?['snackCount'] ?? 0;
+        regularCupCount = data?['regularCupCount'] ?? 0;
+        largeCupCount = data?['largeCupCount'] ?? 0;
+      });
+    } else {
+      setState(() {
+        inventoryTotalSales = 0;
+        silogCount = snackCount = regularCupCount = largeCupCount = 0;
+      });
     }
+  } else {
+    setState(() {
+      inventoryTotalSales = 0;
+      silogCount = snackCount = regularCupCount = largeCupCount = 0;
+    });
   }
+}
+
 
   Future<void> addToDailySales() async {
     final docRef = firestore
@@ -130,19 +149,16 @@ class _InventoryPageState extends State<InventoryPage> {
 
     if (existingDoc.exists) {
       final currentData = existingDoc.data()!;
-      final currentTotalSales = currentData['totalSales'] ?? 0.0;
-      final currentTotalExpenses = currentData['totalExpenses'] ?? 0.0;
-      final currentNetSales = currentData['netSales'] ?? 0.0;
-
       await docRef.update({
-        'totalSales': currentTotalSales + inventoryTotalSales,
+        'totalSales': (currentData['totalSales'] ?? 0) + inventoryTotalSales,
         'silogCount': (currentData['silogCount'] ?? 0) + silogCount,
         'snackCount': (currentData['snackCount'] ?? 0) + snackCount,
-        'regularCupCount': (currentData['regularCupCount'] ?? 0) + regularCupCount,
+        'regularCupCount':
+            (currentData['regularCupCount'] ?? 0) + regularCupCount,
         'largeCupCount': (currentData['largeCupCount'] ?? 0) + largeCupCount,
-        'expenses': (currentData['expenses'] ?? 0.0) + expenses,
-        'totalExpenses': currentTotalExpenses + totalExpenses,
-        'netSales': currentNetSales + netSales,
+        'expenses': expenses,
+        'totalExpenses': (currentData['totalExpenses'] ?? 0) + totalExpenses,
+        'netSales': (currentData['netSales'] ?? 0) + netSales,
         'timestamp': Timestamp.now(),
         'username': widget.username,
       });
@@ -182,6 +198,90 @@ class _InventoryPageState extends State<InventoryPage> {
     }
 
     await batch.commit();
+  }
+
+  Future<void> _pickDate() async {
+    DateTime initialDate = DateTime.tryParse(today) ?? DateTime.now();
+
+    DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+
+    if (picked != null) {
+      setState(() {
+        today = DateFormat('yyyy-MM-dd').format(picked);
+        inventoryTotalSales = 0;
+        totalExpenses = 0;
+        expenses.clear();
+        clearSalesStats();
+      });
+      await _loadData();
+    }
+  }
+
+  Future<void> _confirmDailySales() async {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmation'),
+        backgroundColor: Colors.white,
+        content: const Text(
+          'Are you sure you want to add to daily sales? This will clear today\'s sales and expenses.',
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await addToDailySales();
+              await deleteTodaySales();
+              await firestore
+                  .collection('inventory')
+                  .doc('expenses')
+                  .collection('daily_expenses')
+                  .doc(widget.username)
+                  .collection('expenses')
+                  .get()
+                  .then((snapshot) {
+                for (var doc in snapshot.docs) {
+                  doc.reference.delete();
+                }
+              });
+              await firestore
+                  .collection('inventory')
+                  .doc('sales')
+                  .collection('daily_sales')
+                  .doc(widget.username)
+                  .delete();
+              clearSalesStats();
+              setState(() {
+                expenses.clear();
+                totalExpenses = 0;
+                inventoryTotalSales = 0;
+              });
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF4b8673),
+               shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide.none
+                )
+            ),
+            child: const Text(
+              'Confirm',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            style: TextButton.styleFrom(foregroundColor: Colors.grey[700]),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showExpenseModalSheet() {
@@ -243,7 +343,8 @@ class _InventoryPageState extends State<InventoryPage> {
                 ElevatedButton(
                   onPressed: () async {
                     final name = nameController.text.trim();
-                    final amount = int.tryParse(amountController.text.trim()) ?? 0;
+                    final amount =
+                        int.tryParse(amountController.text.trim()) ?? 0;
 
                     if (name.isNotEmpty && amount > 0) {
                       final expenseData = {
@@ -272,12 +373,18 @@ class _InventoryPageState extends State<InventoryPage> {
                       } catch (e) {
                         Navigator.of(context).pop();
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Failed to save expense')),
+                          const SnackBar(
+                            content: Text('Failed to save expense'),
+                          ),
                         );
                       }
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Please enter valid expense details')),
+                        const SnackBar(
+                          content: Text(
+                            'Please enter valid expense details',
+                          ),
+                        ),
                       );
                     }
                   },
@@ -287,7 +394,10 @@ class _InventoryPageState extends State<InventoryPage> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text('Save', style: TextStyle(color: Colors.white)),
+                  child: const Text(
+                    'Save',
+                    style: TextStyle(color: Colors.white),
+                  ),
                 ),
                 const SizedBox(width: 8),
                 TextButton(
@@ -311,9 +421,16 @@ class _InventoryPageState extends State<InventoryPage> {
       child: ListTile(
         title: Text(
           title,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
-        subtitle: Text('$count sold', style: const TextStyle(color: Colors.white)),
+        subtitle: Text(
+          '$count sold',
+          style: const TextStyle(color: Colors.white),
+        ),
       ),
     );
   }
@@ -328,13 +445,22 @@ class _InventoryPageState extends State<InventoryPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Expenses', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text(
+              'Expenses',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
             ...expenses.map(
               (expense) => ListTile(
                 dense: true,
                 contentPadding: EdgeInsets.zero,
-                title: Text(expense['name'], style: const TextStyle(fontSize: 15)),
-                trailing: Text('₱${expense['amount']}', style: const TextStyle(fontSize: 15)),
+                title: Text(
+                  expense['name'],
+                  style: const TextStyle(fontSize: 15),
+                ),
+                trailing: Text(
+                  '₱${expense['amount']}',
+                  style: const TextStyle(fontSize: 15),
+                ),
               ),
             ),
             const Divider(),
@@ -345,81 +471,6 @@ class _InventoryPageState extends State<InventoryPage> {
           ],
         ),
       ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    bool hasSalesOrExpenses = inventoryTotalSales > 0 || totalExpenses > 0;
-
-    return Scaffold(
-      appBar: AppBar(title: const Text('Inventory')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: hasSalesOrExpenses
-            ? Column(
-                children: [
-                  if (inventoryTotalSales > 0)
-                    Card(
-                      color: Colors.grey[100],
-                      child: ListTile(
-                        title: Text(
-                          'Total Sales: ₱$inventoryTotalSales',
-                          style: const TextStyle(
-                              fontSize: 20, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ),
-                  const SizedBox(height: 20),
-                  if (inventoryTotalSales > 0) ...[
-                    Row(
-                      children: [
-                        Expanded(
-                            child: _buildCategoryCard(
-                                'Silog', silogCount, Color(0xFFe1ad01))),
-                        const SizedBox(width: 10),
-                        Expanded(
-                            child: _buildCategoryCard(
-                                'Snacks', snackCount, Color(0xFFb8286d))),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                            child: _buildCategoryCard('Regular Cups',
-                                regularCupCount, Color(0xFF25b3b9))),
-                        const SizedBox(width: 10),
-                        Expanded(
-                            child: _buildCategoryCard(
-                                'Large Cups', largeCupCount, Color(0xFF166e71))),
-                      ],
-                    ),
-                  ],
-                  const SizedBox(height: 20),
-                  if (expenses.isNotEmpty) _buildExpenseCard(),
-                  const Spacer(),
-                ],
-              )
-            : const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.inventory_2_outlined, size: 80, color: Colors.grey),
-                    SizedBox(height: 12),
-                    Text('No inventory yet.', style: TextStyle(color: Colors.grey, fontSize: 16)),
-                  ],
-                ),
-              ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showExpenseModalSheet,
-        backgroundColor: const Color(0xFF4b8673),
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
-      bottomNavigationBar: hasSalesOrExpenses
-          ? _buildBottomBar()
-          : null,
     );
   }
 
@@ -447,64 +498,143 @@ class _InventoryPageState extends State<InventoryPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Daily Sales:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const Text(
+                'Daily Sales:',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
               Text(
                 '₱${(inventoryTotalSales - totalExpenses).toStringAsFixed(2)}',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green,
+                ),
               ),
             ],
           ),
           const SizedBox(height: 12),
           ElevatedButton(
-            onPressed: () => _confirmDailySales(),
+            onPressed: _confirmDailySales,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF3A705E),
               minimumSize: const Size(double.infinity, 50),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
-            child: const Text('Confirm Daily Sales', style: TextStyle(color: Colors.white, fontSize: 16)),
+            child: const Text(
+              'Confirm Daily Sales',
+              style: TextStyle(color: Colors.white, fontSize: 16),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Future<void> _confirmDailySales() async {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirmation'),
-        backgroundColor: Colors.white,
-        content: const Text('Are you sure you want to add to daily sales? This will clear today\'s sales and expenses.'),
+  @override
+  Widget build(BuildContext context) {
+    bool hasSalesOrExpenses = inventoryTotalSales > 0 || totalExpenses > 0;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Inventory'),
         actions: [
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await addToDailySales();
-              await deleteTodaySales();
-              await firestore.collection('inventory').doc('expenses').collection('daily_expenses').doc(widget.username).collection('expenses').get().then((snapshot) {
-                for (var doc in snapshot.docs) {
-                  doc.reference.delete();
-                }
-              });
-              await firestore.collection('inventory').doc('sales').collection('daily_sales').doc(widget.username).delete();
-              clearSalesStats();
-              setState(() {
-                expenses.clear();
-                totalExpenses = 0;
-                inventoryTotalSales = 0;
-              });
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4b8673)),
-            child: const Text('Confirm', style: TextStyle(color: Colors.white)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            style: TextButton.styleFrom(foregroundColor: Colors.grey[700]),
-            child: const Text('Cancel'),
+          IconButton(
+            icon: const Icon(Icons.calendar_today),
+            onPressed: _pickDate,
           ),
         ],
       ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: hasSalesOrExpenses
+            ? Column(
+                children: [
+                  if (inventoryTotalSales > 0)
+                    Card(
+                      color: Colors.grey[100],
+                      child: ListTile(
+                        title: Text(
+                          'Total Sales: ₱$inventoryTotalSales',
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 20),
+                  if (inventoryTotalSales > 0) ...[
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildCategoryCard(
+                            'Silog',
+                            silogCount,
+                            const Color(0xFFe1ad01),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _buildCategoryCard(
+                            'Snacks',
+                            snackCount,
+                            const Color(0xFFb8286d),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildCategoryCard(
+                            'Regular Cups',
+                            regularCupCount,
+                            const Color(0xFF25b3b9),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _buildCategoryCard(
+                            'Large Cups',
+                            largeCupCount,
+                            const Color(0xFF166e71),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 20),
+                  if (expenses.isNotEmpty) _buildExpenseCard(),
+                  const Spacer(),
+                ],
+              )
+            : const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.inventory_2_outlined,
+                      size: 80,
+                      color: Colors.grey,
+                    ),
+                    SizedBox(height: 12),
+                    Text(
+                      'No inventory yet.',
+                      style: TextStyle(color: Colors.grey, fontSize: 16),
+                    ),
+                  ],
+                ),
+              ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showExpenseModalSheet,
+        backgroundColor: const Color(0xFF4b8673),
+        child: const Icon(Icons.add, color: Colors.white),
+      ),
+      bottomNavigationBar: hasSalesOrExpenses ? _buildBottomBar() : null,
     );
   }
 }

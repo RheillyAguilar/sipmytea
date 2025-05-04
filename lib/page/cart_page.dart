@@ -104,6 +104,7 @@ class _CartPageState extends State<CartPage> {
                       backgroundColor: const Color(0xFF4B8673),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
+                        side: BorderSide.none,
                       ),
                     ),
                     child: const Text(
@@ -205,7 +206,7 @@ class _CartPageState extends State<CartPage> {
           'timestamp': FieldValue.serverTimestamp(),
         });
 
-      // ====== START: Stock Management ======
+        // ====== START: Stock Management ======
 
         // PATTIES MANAGEMENT
         final pattiesDoc =
@@ -291,33 +292,32 @@ class _CartPageState extends State<CartPage> {
 
         // Bans Management
         final bansDoc = await firestore.collection('stock').doc('Bans').get();
-        if(bansDoc.exists) {
+        if (bansDoc.exists) {
           final product = item.productName.toLowerCase();
-          final bansNeeded = 
-          (['regular beef', 'cheese beef', 'egg sandwich'].any(product.contains)) 
-            ? 2
-            : product.contains('combo')
-            ? 1
-            : 0;
+          final bansNeeded =
+              ([
+                    'regular beef',
+                    'cheese beef',
+                    'egg sandwich',
+                  ].any(product.contains))
+                  ? 2
+                  : product.contains('combo')
+                  ? 1
+                  : 0;
 
-          if(bansNeeded > 0) {
+          if (bansNeeded > 0) {
             int currentQty = int.tryParse(bansDoc['quantity'].toString()) ?? 0;
             int updatedQty = (currentQty - bansNeeded).clamp(0, currentQty);
-            await bansDoc.reference.update({
-              'quantity': updatedQty.toString()
-            });
+            await bansDoc.reference.update({'quantity': updatedQty.toString()});
           }
-
         }
 
-
-
-
-        // Cups Management
+        // Cups and Staw Management
         final cupSize = item.size.toLowerCase();
         final cupDocName =
             {'regular': 'Regular Cups', 'large': 'Large Cups'}[cupSize];
         if (cupDocName != null) {
+          // Cups Deduction
           final cupDoc =
               await firestore.collection('stock').doc(cupDocName).get();
           if (cupDoc.exists) {
@@ -326,6 +326,19 @@ class _CartPageState extends State<CartPage> {
             if (updatedQty < 0) updatedQty = 0;
             await firestore.collection('stock').doc(cupDocName).update({
               'quantity': updatedQty.toString(),
+            });
+          }
+
+          //Straw Deduction
+          final strawDoc =
+              await firestore.collection('stock').doc('Straw').get();
+          if (strawDoc.exists) {
+            int currentStrawQty =
+                int.tryParse(strawDoc['quantity'].toString()) ?? 0;
+            int updatedStrawQty = currentStrawQty - 1;
+            if (updatedStrawQty < 0) updatedStrawQty = 0;
+            await firestore.collection('stock').doc('Straw').update({
+              'quantity': updatedStrawQty.toString(),
             });
           }
         }

@@ -104,33 +104,37 @@ class _CreateAccountState extends State<CreateAccount> {
                 confirmDismiss: (direction) async {
                   return await showDialog(
                     context: context,
-                    builder: (ctx) => AlertDialog(
-                      backgroundColor: Colors.white,
-                      title: const Text("Confirm Deletion"),
-                      content: const Text("Are you sure you want to delete this account?"),
-                      actions: [
-                        ElevatedButton(
-                          onPressed: () => Navigator.of(ctx).pop(true),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                    builder:
+                        (ctx) => AlertDialog(
+                          backgroundColor: Colors.white,
+                          title: const Text("Confirm Deletion"),
+                          content: const Text(
+                            "Are you sure you want to delete this account?",
+                          ),
+                          actions: [
+                            ElevatedButton(
+                              onPressed: () => Navigator.of(ctx).pop(true),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  side: BorderSide.none,
+                                ),
+                              ),
+                              child: const Text(
+                                "Delete",
+                                style: TextStyle(color: Colors.white),
+                              ),
                             ),
-                          ),
-                          child: const Text(
-                            "Delete",
-                            style: TextStyle(color: Colors.white),
-                          ),
+                            TextButton(
+                              onPressed: () => Navigator.of(ctx).pop(false),
+                              style: TextButton.styleFrom(
+                                foregroundColor: Colors.grey[700],
+                              ),
+                              child: const Text("Cancel"),
+                            ),
+                          ],
                         ),
-                        TextButton(
-                          onPressed: () => Navigator.of(ctx).pop(false),
-                          style: TextButton.styleFrom(
-                            foregroundColor: Colors.grey[700],
-                          ),
-                          child: const Text("Cancel"),
-                        ),
-                      ],
-                    ),
                   );
                 },
                 onDismissed: (direction) async {
@@ -199,7 +203,10 @@ class _CreateAccountState extends State<CreateAccount> {
                             const SizedBox(height: 20),
                             TextFormField(
                               controller: usernameController,
-                              decoration: _inputDecoration('Username', Icons.person),
+                              decoration: _inputDecoration(
+                                'Username',
+                                Icons.person,
+                              ),
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
                                   return 'Please enter a username';
@@ -210,7 +217,10 @@ class _CreateAccountState extends State<CreateAccount> {
                             const SizedBox(height: 16),
                             TextFormField(
                               controller: emailController,
-                              decoration: _inputDecoration('Email', Icons.email),
+                              decoration: _inputDecoration(
+                                'Email',
+                                Icons.email,
+                              ),
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
                                   return 'Please enter an email';
@@ -254,7 +264,10 @@ class _CreateAccountState extends State<CreateAccount> {
                             const SizedBox(height: 16),
                             Row(
                               children: [
-                                const Text('Admin:', style: TextStyle(fontSize: 18)),
+                                const Text(
+                                  'Admin:',
+                                  style: TextStyle(fontSize: 18),
+                                ),
                                 Switch(
                                   value: tempIsAdmin,
                                   onChanged: (value) {
@@ -276,18 +289,22 @@ class _CreateAccountState extends State<CreateAccount> {
                                   await FirebaseFirestore.instance
                                       .collection('account')
                                       .add({
-                                    'username': usernameController.text.trim(),
-                                    'email': emailController.text.trim(),
-                                    'password': passwordController.text.trim(),
-                                    'admin': isAdmin,
-                                  });
+                                        'username':
+                                            usernameController.text.trim(),
+                                        'email': emailController.text.trim(),
+                                        'password':
+                                            passwordController.text.trim(),
+                                        'admin': isAdmin,
+                                      });
 
                                   _resetForm();
                                   Navigator.pop(context);
 
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
-                                      content: Text('Account created successfully!'),
+                                      content: Text(
+                                        'Account created successfully!',
+                                      ),
                                     ),
                                   );
                                 }
