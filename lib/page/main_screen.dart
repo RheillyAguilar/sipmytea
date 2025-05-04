@@ -27,7 +27,8 @@ class _MainScreenState extends State<MainScreen> {
   final Map<int, Set<String>> _selectedAddOns = {};
   final ScrollController _scrollController = ScrollController();
 
-  void _showAddOnsDialog(BuildContext context, Map<String, String> selectedItem, int index, String selectedSize) {
+  void _showAddOnsDialog(BuildContext context, Map<String, String> selectedItem, int index, String selectedSize, selectedCategoryName
+  ) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -35,6 +36,7 @@ class _MainScreenState extends State<MainScreen> {
           selectedItem: {
             ...selectedItem,
             'size': selectedSize,
+            'category': selectedCategoryName, 
           },
           selectedAddOns: _selectedAddOns[index] ?? {},
           onAddOnsSelected: (selectedAddOns) {
@@ -48,7 +50,7 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  void _showSnackSilogConfirmationDialog(BuildContext context, Map<String, String> selectedItem) {
+  void _showSnackSilogConfirmationDialog(BuildContext context, Map<String, String> selectedItem, String category) {
     String productName = selectedItem["name"] ?? "Unknown";
     String priceText = selectedItem["price"] ?? "₱0";
     int price = int.parse(priceText.replaceAll("₱", ""));
@@ -79,6 +81,7 @@ class _MainScreenState extends State<MainScreen> {
                     size: "N/A",
                     addOns: [],
                     totalPrice: price,
+                    category: category,
                   ),
                 );
                 Navigator.of(context).pop();
@@ -177,9 +180,9 @@ class _MainScreenState extends State<MainScreen> {
                       );
                     } else {
                       if (selectedCategoryName == "Snack" || selectedCategoryName == "Silog") {
-                        _showSnackSilogConfirmationDialog(context, filteredItems[index]);
+                        _showSnackSilogConfirmationDialog(context, filteredItems[index], selectedCategoryName);
                       } else {
-                        _showAddOnsDialog(context, filteredItems[index], index, _selectedSizes[index]!);
+                        _showAddOnsDialog(context, filteredItems[index], index, _selectedSizes[index]!, selectedCategoryName);
                       }
                     }
                   },

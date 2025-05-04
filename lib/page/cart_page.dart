@@ -355,7 +355,8 @@ class _CartPageState extends State<CartPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Name: ${item.productName}', style: const TextStyle(fontWeight: FontWeight.w600)),
+            Text('Category: ${item.category}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+            Text('Name: ${item.productName}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
             const SizedBox(height: 4),
             Text('Size: ${item.size}'),
             if (item.addOns.isNotEmpty) ...[
