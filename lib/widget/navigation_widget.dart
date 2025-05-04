@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:sipmytea/page/create_account.dart';
 import 'package:sipmytea/page/daily_page.dart';
-import 'package:sipmytea/page/document_page.dart';
+import 'package:sipmytea/page/finished_page.dart';
 import 'package:sipmytea/page/inventory_page.dart';
 import 'package:sipmytea/page/monthly_page.dart';
 import 'package:sipmytea/page/sales_page.dart';
@@ -47,7 +47,7 @@ class _NavigationWidgetState extends State<NavigationWidget> {
         Navigator.of(context).push(MaterialPageRoute(builder: (_) => InventoryPage(username: widget.username)));
         break;
       case 1:
-        Navigator.of(context).push(MaterialPageRoute(builder: (_) => DocumentPage()));
+        Navigator.of(context).push(MaterialPageRoute(builder: (_) => FinishedPage()));
         break;
       case 2:
         Navigator.of(context).push(MaterialPageRoute(builder: (_) => SalesPage(username: widget.username)));
@@ -92,8 +92,8 @@ class _NavigationWidgetState extends State<NavigationWidget> {
                 buildItem(text: 'Inventory', icon: Icons.inventory_2_outlined, onClicked: () => selectedItem(context, 0)),
                 if (widget.isAdmin) buildItem(text: 'Daily Summary', icon: Iconsax.graph, onClicked: () => selectedItem(context, 6)),
                 if (widget.isAdmin) buildItem(text: 'Monthly Sales', icon: Iconsax.calendar, onClicked: () => selectedItem(context, 4)),
+                buildItem(text: 'Finished Goods', icon: Iconsax.document, onClicked: () => selectedItem(context, 1)),
                 if (widget.isAdmin) buildItem(text: 'Stock', icon: Iconsax.box4, onClicked: () => selectedItem(context, 3)),
-                buildItem(text: 'Documents', icon: Iconsax.document, onClicked: () => selectedItem(context, 1)),
                 if (widget.isAdmin) buildItem(text: 'Create Account', icon: Iconsax.user_add, onClicked: () => selectedItem(context, 5)),
               ],
             ),
