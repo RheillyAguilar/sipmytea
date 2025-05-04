@@ -17,3 +17,10 @@
 - Save account 
 - Random profile per account
 - Fix Overwrite for stock
+
+### v2.4
+- Categories for Stock
+- Type of Stock
+- Warning if the stock level is reach the limit
+- Display First name only in Save Account
+- Username and Random Profile in Navigation
