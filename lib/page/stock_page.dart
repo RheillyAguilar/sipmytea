@@ -14,7 +14,11 @@ class _StockPageState extends State<StockPage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _numberController = TextEditingController();
 
-  void _showAddStockSheet({String? docId, String? initialName, String? initialQuantity}) {
+  void _showAddStockSheet({
+    String? docId,
+    String? initialName,
+    String? initialQuantity,
+  }) {
     _nameController.text = initialName ?? '';
     _numberController.text = initialQuantity ?? '';
 
@@ -25,66 +29,90 @@ class _StockPageState extends State<StockPage> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(
-          left: 20,
-          right: 20,
-          top: 20,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              docId != null ? 'Edit Stock' : 'Add New Stock',
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+      builder:
+          (context) => Padding(
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              top: 20,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 20,
             ),
-            const SizedBox(height: 20),
-            TextField(
-              controller: _nameController,
-              decoration: _inputDecoration('Name'),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _numberController,
-              keyboardType: TextInputType.number,
-              decoration: _inputDecoration('Quantity'),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () async {
-                String name = _nameController.text.trim();
-                String number = _numberController.text.trim();
-
-                if (name.isNotEmpty && number.isNotEmpty) {
-                  await FirebaseFirestore.instance
-                      .collection('stock')
-                      .doc(name)
-                      .set({
-                    'name': name,
-                    'quantity': number,
-                  });
-
-                  Navigator.pop(context);
-                  _nameController.clear();
-                  _numberController.clear();
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 50),
-                backgroundColor: const Color(0xFF4B8673),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  docId != null ? 'Edit Stock' : 'Add New Stock',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-              child: Text(
-                docId != null ? 'Save' : 'Add',
-                style: const TextStyle(color: Colors.white),
-              ),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: _nameController,
+                  decoration: _inputDecoration('Name'),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _numberController,
+                  keyboardType: TextInputType.number,
+                  decoration: _inputDecoration('Quantity'),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: () async {
+                    String name = _nameController.text.trim();
+                    String number = _numberController.text.trim();
+
+                    if (name.isNotEmpty && number.isNotEmpty) {
+                      final docRef = FirebaseFirestore.instance
+                          .collection('stock')
+                          .doc(name);
+                      final doc = await docRef.get();
+
+                      int inputQuantity = int.tryParse(number) ?? 0;
+
+                      if (docId != null) {
+                        // Edit mode: update to the new quantity directly
+                        await docRef.set({
+                          'name': name,
+                          'quantity': inputQuantity.toString(),
+                        });
+                      } else {
+                        // Add mode: sum with existing if it exists
+                        int currentQuantity = 0;
+                        if (doc.exists) {
+                          currentQuantity = int.tryParse(doc['quantity'].toString()) ?? 0;
+                        }
+
+                        await docRef.set({
+                          'name': name,
+                          'quantity':
+                              (currentQuantity + inputQuantity).toString(),
+                        });
+                      }
+
+                      Navigator.pop(context);
+                      _nameController.clear();
+                      _numberController.clear();
+                    }
+                  },
+
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 50),
+                    backgroundColor: const Color(0xFF4B8673),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    docId != null ? 'Save' : 'Add',
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
     );
   }
 
@@ -101,35 +129,40 @@ class _StockPageState extends State<StockPage> {
   }
 
   void _confirmDelete(String docId) async {
-    bool confirm = await showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Delete Stock?'),
-          content: const Text('Are you sure to delete this stock?'),
-          actions: [
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context, true),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redAccent,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide.none),
-              ),
-              child: const Text(
-                'Delete',
-                style: TextStyle(color: Colors.white),
-              ),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              style: TextButton.styleFrom(foregroundColor: Colors.grey[700]),
-              child: const Text('Cancel'),
-            ),
-          ],
-        );
-      },
-    ) ?? false;
+    bool confirm =
+        await showDialog(
+          context: context,
+          builder: (context) {
+            return AlertDialog(
+              title: const Text('Delete Stock?'),
+              content: const Text('Are you sure to delete this stock?'),
+              actions: [
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.redAccent,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide.none,
+                    ),
+                  ),
+                  child: const Text(
+                    'Delete',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.grey[700],
+                  ),
+                  child: const Text('Cancel'),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
 
     if (confirm) {
       await FirebaseFirestore.instance.collection('stock').doc(docId).delete();
@@ -140,8 +173,10 @@ class _StockPageState extends State<StockPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title:
-            const Text('Stock', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Stock',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: Colors.white,
         elevation: 0,
         foregroundColor: Colors.black,
@@ -160,8 +195,10 @@ class _StockPageState extends State<StockPage> {
                 children: const [
                   Icon(Iconsax.box, size: 80, color: Colors.grey),
                   SizedBox(height: 12),
-                  Text('No stocks yet.',
-                      style: TextStyle(color: Colors.grey, fontSize: 16)),
+                  Text(
+                    'No stocks yet.',
+                    style: TextStyle(color: Colors.grey, fontSize: 16),
+                  ),
                 ],
               ),
             );
@@ -217,8 +254,12 @@ class _StockPageState extends State<StockPage> {
       motion: const DrawerMotion(),
       children: [
         SlidableAction(
-          onPressed: (_) => _showAddStockSheet(
-              docId: docId, initialName: name, initialQuantity: quantity),
+          onPressed:
+              (_) => _showAddStockSheet(
+                docId: docId,
+                initialName: name,
+                initialQuantity: quantity,
+              ),
           backgroundColor: Colors.blueAccent,
           foregroundColor: Colors.white,
           icon: Icons.edit,
