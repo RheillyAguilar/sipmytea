@@ -2,15 +2,18 @@
 - This project is all about Point of Sales with and Ordering System for Milktea Shop.
 
 
-## Getting Started
+## Version Listed
 
-This project is a starting point for a Flutter application.
+### v2.1 
+- Fix the problem about build gradle
+- Modern ui in enter amount on Cart Page
+- Add ui/ux for Stock Page
 
-A few resources to get you started if this is your first Flutter project:
+### v2.2
+- Modern ui for all dialog
+- Manage for stock
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+### v2.3
+- Save account 
+- Random profile per account
+- Fix Overwrite for stock
