@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:sipmytea/page/create_account.dart';
@@ -23,8 +24,20 @@ class NavigationWidget extends StatefulWidget {
 }
 
 class _NavigationWidgetState extends State<NavigationWidget> {
-  final image = 'assets/sipmytea_logo.png';
-  final name = 'Sip My Tea - Mariveles';
+  late final String profileImage;
+
+  @override
+  void initState() {
+    super.initState();
+    final random = Random();
+    int index = random.nextInt(5) + 1;
+    profileImage = 'assets/profile$index.jpg';
+  }
+
+  String capitalizeFirstLetter(String text) {
+    if (text.isEmpty) return text;
+    return text[0].toUpperCase() + text.substring(1);
+  }
 
   void selectedItem(BuildContext context, int index) {
     Navigator.of(context).pop();
@@ -49,7 +62,9 @@ class _NavigationWidgetState extends State<NavigationWidget> {
         Navigator.of(context).push(MaterialPageRoute(builder: (_) => CreateAccount()));
         break;
       case 6:
-        Navigator.of(context).push(MaterialPageRoute(builder: (_) => DailyPage(username: widget.username, isAdmin: widget.isAdmin)));
+        Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => DailyPage(username: widget.username, isAdmin: widget.isAdmin),
+        ));
         break;
     }
   }
@@ -71,50 +86,15 @@ class _NavigationWidgetState extends State<NavigationWidget> {
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               children: [
-                const SizedBox(height: 32),
-                buildHeader(image: image, name: name),
-                const SizedBox(height: 24),
+                buildHeader(image: profileImage, name: widget.username),
                 const Divider(thickness: 1),
-                const SizedBox(height: 16),
-                buildItem(
-                  text: 'Sales',
-                  icon: Iconsax.money,
-                  onClicked: () => selectedItem(context, 2),
-                ),
-                buildItem(
-                  text: 'Inventory',
-                  icon: Icons.inventory_2_outlined,
-                  onClicked: () => selectedItem(context, 0),
-                ),
-                if (widget.isAdmin)
-                  buildItem(
-                    text: 'Daily Summary',
-                    icon: Iconsax.graph,
-                    onClicked: () => selectedItem(context, 6),
-                  ),
-                if (widget.isAdmin)
-                  buildItem(
-                    text: 'Monthly Sales',
-                    icon: Iconsax.calendar,
-                    onClicked: () => selectedItem(context, 4),
-                  ),
-                if (widget.isAdmin)
-                  buildItem(
-                    text: 'Stock',
-                    icon: Iconsax.box4,
-                    onClicked: () => selectedItem(context, 3),
-                  ),
-                buildItem(
-                  text: 'Documents',
-                  icon: Iconsax.document,
-                  onClicked: () => selectedItem(context, 1),
-                ),
-                if (widget.isAdmin)
-                  buildItem(
-                    text: 'Create Account',
-                    icon: Iconsax.user_add,
-                    onClicked: () => selectedItem(context, 5),
-                  ),
+                buildItem(text: 'Sales', icon: Iconsax.money, onClicked: () => selectedItem(context, 2)),
+                buildItem(text: 'Inventory', icon: Icons.inventory_2_outlined, onClicked: () => selectedItem(context, 0)),
+                if (widget.isAdmin) buildItem(text: 'Daily Summary', icon: Iconsax.graph, onClicked: () => selectedItem(context, 6)),
+                if (widget.isAdmin) buildItem(text: 'Monthly Sales', icon: Iconsax.calendar, onClicked: () => selectedItem(context, 4)),
+                if (widget.isAdmin) buildItem(text: 'Stock', icon: Iconsax.box4, onClicked: () => selectedItem(context, 3)),
+                buildItem(text: 'Documents', icon: Iconsax.document, onClicked: () => selectedItem(context, 1)),
+                if (widget.isAdmin) buildItem(text: 'Create Account', icon: Iconsax.user_add, onClicked: () => selectedItem(context, 5)),
               ],
             ),
           ),
@@ -135,9 +115,7 @@ class _NavigationWidgetState extends State<NavigationWidget> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF4B8673),
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   elevation: 2,
                 ),
               ),
@@ -149,23 +127,27 @@ class _NavigationWidgetState extends State<NavigationWidget> {
   }
 
   Widget buildHeader({required String image, required String name}) {
-    return Column(
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(100),
-          child: Image.asset(image, height: 100),
-        ),
-        const SizedBox(height: 12),
-        Text(
-          name,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontWeight: FontWeight.w800,
-            fontSize: 18,
-            color: Colors.black87,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(10, 60, 10, 10),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(100),
+            child: Image.asset(image, height: 50, width: 50, fit: BoxFit.cover),
           ),
-        ),
-      ],
+          const SizedBox(width: 15),
+          Expanded(
+            child: Text(
+              capitalizeFirstLetter(name),
+              style: const TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 18,
+                color: Colors.black87,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

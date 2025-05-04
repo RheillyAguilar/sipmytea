@@ -47,7 +47,10 @@ class MainPage extends StatefulWidget {
   final bool isAdmin;
   final String username;
 
-  const MainPage({super.key, required this.isAdmin, required this.username});
+  const MainPage({
+    super.key, 
+    required this.isAdmin, 
+    required this.username});
 
   @override
   State<MainPage> createState() => _MainPageState();
@@ -82,7 +85,7 @@ class _MainPageState extends State<MainPage> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              '${widget.username[0].toUpperCase()}${widget.username.substring(1)}',
+              'SipMyTea - Mariveles', style: TextStyle(fontSize: 14),
             ),
             Text(
               currentDate,

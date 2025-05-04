@@ -91,6 +91,7 @@ class _CartPageState extends State<CartPage> {
                         amountController.text,
                       );
                       if (enteredAmount == null) {
+                        Navigator.pop(context);
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text('Please enter a valid number.'),
@@ -124,6 +125,72 @@ class _CartPageState extends State<CartPage> {
               ),
               const SizedBox(height: 12),
             ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _handleWarning(String productName, int updatedQty) async {
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          backgroundColor: Colors.white,
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.warning_amber_rounded,
+                    size: 64,
+                    color: Colors.red,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  'Low Stock Alert',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.red.shade600,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  '$productName stock is low.\nOnly $updatedQty left.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 16, color: Colors.grey.shade800),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.redAccent,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text('Acknowledge'),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -219,18 +286,22 @@ class _CartPageState extends State<CartPage> {
                   : product.contains('combo')
                   ? 1
                   : 0;
+          int currentQty = int.tryParse(pattiesDoc['quantity'].toString()) ?? 0;
+          int updatedQty = (currentQty - pattiesNeeded).clamp(0, currentQty);
+          int limit = int.tryParse(pattiesDoc['limit'].toString()) ?? 0;
 
           if (pattiesNeeded > 0) {
-            int currentQty =
-                int.tryParse(pattiesDoc['quantity'].toString()) ?? 0;
-            int updatedQty = (currentQty - pattiesNeeded).clamp(0, currentQty);
             await pattiesDoc.reference.update({
               'quantity': updatedQty.toString(),
             });
           }
+
+          if (updatedQty <= limit) {
+            await _handleWarning('Patties', updatedQty);
+          }
         }
 
-        // Cheese Stick Management
+        // CHEESE STICK MANAGEMENT
         final cheeseStickDoc =
             await firestore.collection('stock').doc('Cheese Stick').get();
         if (cheeseStickDoc.exists) {
@@ -241,18 +312,24 @@ class _CartPageState extends State<CartPage> {
                   : product.contains('combo')
                   ? 7
                   : 0;
+          int currentQty =
+              int.tryParse(cheeseStickDoc['quantity'].toString()) ?? 0;
+          int updatedQty = (currentQty - cheeseNeeded).clamp(0, currentQty);
+          int limit =
+              int.tryParse(cheeseStickDoc['limit'].toString()) ?? 0;
 
           if (cheeseNeeded > 0) {
-            int currentQty =
-                int.tryParse(cheeseStickDoc['quantity'].toString()) ?? 0;
-            int updatedQty = (currentQty - cheeseNeeded).clamp(0, currentQty);
             await cheeseStickDoc.reference.update({
               'quantity': updatedQty.toString(),
             });
           }
+
+          if (updatedQty <= limit) {
+            await _handleWarning('Cheese Stick', updatedQty);
+          }
         }
 
-        // Fries Management
+        // FRIES MANAGEMENT
         final friesDoc = await firestore.collection('stock').doc('Fries').get();
         if (friesDoc.exists) {
           final product = item.productName.toLowerCase();
@@ -262,17 +339,23 @@ class _CartPageState extends State<CartPage> {
                   : product.contains('combo')
                   ? 120
                   : 0;
+          int currentQty = int.tryParse(friesDoc['quantity'].toString()) ?? 0;
+          int updatedQty = (currentQty - friesNeeded).clamp(0, currentQty);
+          int limit =
+              int.tryParse(friesDoc['limit'].toString()) ?? 0;
 
           if (friesNeeded > 0) {
-            int currentQty = int.tryParse(friesDoc['quantity'].toString()) ?? 0;
-            int updatedQty = (currentQty - friesNeeded).clamp(0, currentQty);
             await friesDoc.reference.update({
               'quantity': updatedQty.toString(),
             });
           }
+
+          if (updatedQty <= limit) {
+            await _handleWarning('Fries', updatedQty);
+          }
         }
 
-        // Egg Management
+        // EGG MANAGEMENT
         final eggDoc = await _getExistingStockDoc(['Egg', 'Itlog']);
         if (eggDoc != null) {
           final product = item.productName.toLowerCase();
@@ -282,15 +365,20 @@ class _CartPageState extends State<CartPage> {
                   : product.contains('silog')
                   ? 1
                   : 0;
+          int currentQty = int.tryParse(eggDoc['quantity'].toString()) ?? 0;
+          int updatedQty = (currentQty - eggsNeeded).clamp(0, currentQty);
+          int limit = int.tryParse(eggDoc['limit'].toString()) ?? 0;
 
           if (eggsNeeded > 0) {
-            int currentQty = int.tryParse(eggDoc['quantity'].toString()) ?? 0;
-            int updatedQty = (currentQty - eggsNeeded).clamp(0, currentQty);
             await eggDoc.reference.update({'quantity': updatedQty.toString()});
+          }
+
+          if (updatedQty <= limit) {
+            await _handleWarning(eggDoc.id, updatedQty);
           }
         }
 
-        // Bans Management
+        // BANS MANAGEMENT
         final bansDoc = await firestore.collection('stock').doc('Bans').get();
         if (bansDoc.exists) {
           final product = item.productName.toLowerCase();
@@ -304,15 +392,20 @@ class _CartPageState extends State<CartPage> {
                   : product.contains('combo')
                   ? 1
                   : 0;
+          int currentQty = int.tryParse(bansDoc['quantity'].toString()) ?? 0;
+          int updatedQty = (currentQty - bansNeeded).clamp(0, currentQty);
+          int limit = int.tryParse(bansDoc['limit'].toString()) ?? 0;
 
           if (bansNeeded > 0) {
-            int currentQty = int.tryParse(bansDoc['quantity'].toString()) ?? 0;
-            int updatedQty = (currentQty - bansNeeded).clamp(0, currentQty);
             await bansDoc.reference.update({'quantity': updatedQty.toString()});
+          }
+
+          if (updatedQty <= limit) {
+            await _handleWarning('Bans', updatedQty);
           }
         }
 
-        // Cups and Staw Management
+        // CUPS AND STRAW MANAGEMENT
         final cupSize = item.size.toLowerCase();
         final cupDocName =
             {'regular': 'Regular Cups', 'large': 'Large Cups'}[cupSize];
@@ -320,26 +413,37 @@ class _CartPageState extends State<CartPage> {
           // Cups Deduction
           final cupDoc =
               await firestore.collection('stock').doc(cupDocName).get();
+          int currentQty = int.tryParse(cupDoc['quantity'].toString()) ?? 0;
+          int updatedQty = (currentQty - 1).clamp(0, currentQty);
+          int limit = int.tryParse(cupDoc['limit'].toString()) ?? 0;
+
           if (cupDoc.exists) {
-            int currentQty = int.tryParse(cupDoc['quantity'].toString()) ?? 0;
-            int updatedQty = currentQty - 1;
-            if (updatedQty < 0) updatedQty = 0;
             await firestore.collection('stock').doc(cupDocName).update({
               'quantity': updatedQty.toString(),
             });
           }
 
-          //Straw Deduction
+          if (updatedQty <= limit) {
+            await _handleWarning(cupDocName, updatedQty);
+          }
+
+          // Straw Deduction
           final strawDoc =
               await firestore.collection('stock').doc('Straw').get();
+          int currentStrawQty =
+              int.tryParse(strawDoc['quantity'].toString()) ?? 0;
+          int updatedStrawQty = (currentStrawQty - 1).clamp(0, currentStrawQty);
+          int strawLimit =
+              int.tryParse(strawDoc['limit'].toString()) ?? 0;
+
           if (strawDoc.exists) {
-            int currentStrawQty =
-                int.tryParse(strawDoc['quantity'].toString()) ?? 0;
-            int updatedStrawQty = currentStrawQty - 1;
-            if (updatedStrawQty < 0) updatedStrawQty = 0;
             await firestore.collection('stock').doc('Straw').update({
               'quantity': updatedStrawQty.toString(),
             });
+          }
+
+          if (updatedStrawQty <= strawLimit) {
+            await _handleWarning('Straw', updatedStrawQty);
           }
         }
       }

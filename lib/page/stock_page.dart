@@ -13,14 +13,30 @@ class StockPage extends StatefulWidget {
 class _StockPageState extends State<StockPage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _numberController = TextEditingController();
+  final TextEditingController _limitController = TextEditingController();
+  String _selectedType = '';
+  String _selectedCategory = 'All';
+
+  final List<String> _categories = [
+    'All',
+    'Burger',
+    'Milktea',
+    'Syrup',
+    'Powder',
+    'Others'
+  ];
 
   void _showAddStockSheet({
     String? docId,
     String? initialName,
     String? initialQuantity,
+    String? initialLimit,
+    String? initialType,
   }) {
     _nameController.text = initialName ?? '';
     _numberController.text = initialQuantity ?? '';
+    _limitController.text = initialLimit ?? '';
+    _selectedType = initialType ?? '';
 
     showModalBottomSheet(
       context: context,
@@ -29,90 +45,127 @@ class _StockPageState extends State<StockPage> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder:
-          (context) => Padding(
-            padding: EdgeInsets.only(
-              left: 20,
-              right: 20,
-              top: 20,
-              bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 20,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              docId != null ? 'Edit Stock' : 'Add New Stock',
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  docId != null ? 'Edit Stock' : 'Add New Stock',
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                TextField(
-                  controller: _nameController,
-                  decoration: _inputDecoration('Name'),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _numberController,
-                  keyboardType: TextInputType.number,
-                  decoration: _inputDecoration('Quantity'),
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: () async {
-                    String name = _nameController.text.trim();
-                    String number = _numberController.text.trim();
+            const SizedBox(height: 20),
+            TextField(
+              controller: _nameController,
+              decoration: _inputDecoration('Name'),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _numberController,
+              keyboardType: TextInputType.number,
+              decoration: _inputDecoration('Quantity'),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _limitController,
+              keyboardType: TextInputType.number,
+              decoration: _inputDecoration('Limit'),
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              value: _selectedType.isNotEmpty ? _selectedType : null,
+              decoration: _inputDecoration('Type'),
+              items: _categories
+                  .where((item) => item != 'All')
+                  .map((type) => DropdownMenuItem<String>(
+                        value: type,
+                        child: Text(type),
+                      ))
+                  .toList(),
+              onChanged: (value) {
+                setState(() {
+                  _selectedType = value ?? '';
+                });
+              },
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () async {
+                String name = _nameController.text.trim();
+                String number = _numberController.text.trim();
+                String limit = _limitController.text.trim();
 
-                    if (name.isNotEmpty && number.isNotEmpty) {
-                      final docRef = FirebaseFirestore.instance
-                          .collection('stock')
-                          .doc(name);
-                      final doc = await docRef.get();
-
-                      int inputQuantity = int.tryParse(number) ?? 0;
-
-                      if (docId != null) {
-                        // Edit mode: update to the new quantity directly
-                        await docRef.set({
-                          'name': name,
-                          'quantity': inputQuantity.toString(),
-                        });
-                      } else {
-                        // Add mode: sum with existing if it exists
-                        int currentQuantity = 0;
-                        if (doc.exists) {
-                          currentQuantity = int.tryParse(doc['quantity'].toString()) ?? 0;
-                        }
-
-                        await docRef.set({
-                          'name': name,
-                          'quantity':
-                              (currentQuantity + inputQuantity).toString(),
-                        });
-                      }
-
-                      Navigator.pop(context);
-                      _nameController.clear();
-                      _numberController.clear();
-                    }
-                  },
-
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 50),
-                    backgroundColor: const Color(0xFF4B8673),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                if (name.isEmpty ||
+                    number.isEmpty ||
+                    limit.isEmpty ||
+                    _selectedType.isEmpty) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please input all fields'),
+                      backgroundColor: Colors.black,
                     ),
-                  ),
-                  child: Text(
-                    docId != null ? 'Save' : 'Add',
-                    style: const TextStyle(color: Colors.white),
-                  ),
+                  );
+                  return;
+                }
+
+                final docRef =
+                    FirebaseFirestore.instance.collection('stock').doc(name);
+                final doc = await docRef.get();
+
+                int inputQuantity = int.tryParse(number) ?? 0;
+
+                if (docId != null) {
+                  await docRef.set({
+                    'name': name,
+                    'quantity': inputQuantity.toString(),
+                    'limit': limit,
+                    'type': _selectedType,
+                  });
+                } else {
+                  int currentQuantity = 0;
+                  if (doc.exists) {
+                    currentQuantity =
+                        int.tryParse(doc['quantity'].toString()) ?? 0;
+                  }
+
+                  await docRef.set({
+                    'name': name,
+                    'quantity': (currentQuantity + inputQuantity).toString(),
+                    'limit': limit,
+                    'type': _selectedType,
+                  });
+                }
+
+                Navigator.pop(context);
+                _nameController.clear();
+                _numberController.clear();
+                _limitController.clear();
+                _selectedType = '';
+              },
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 50),
+                backgroundColor: const Color(0xFF4B8673),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-              ],
+              ),
+              child: Text(
+                docId != null ? 'Save' : 'Add',
+                style: const TextStyle(color: Colors.white),
+              ),
             ),
-          ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -129,8 +182,7 @@ class _StockPageState extends State<StockPage> {
   }
 
   void _confirmDelete(String docId) async {
-    bool confirm =
-        await showDialog(
+    bool confirm = await showDialog(
           context: context,
           builder: (context) {
             return AlertDialog(
@@ -143,7 +195,6 @@ class _StockPageState extends State<StockPage> {
                     backgroundColor: Colors.redAccent,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
-                      side: BorderSide.none,
                     ),
                   ),
                   child: const Text(
@@ -169,97 +220,98 @@ class _StockPageState extends State<StockPage> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Stock',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        foregroundColor: Colors.black,
-      ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('stock').snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+  Widget _buildStockList() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance.collection('stock').snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
-                  Icon(Iconsax.box, size: 80, color: Colors.grey),
-                  SizedBox(height: 12),
-                  Text(
-                    'No stocks yet.',
-                    style: TextStyle(color: Colors.grey, fontSize: 16),
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return const Center(child: Text('No stocks yet.'));
+        }
+
+        List<QueryDocumentSnapshot> stocks = snapshot.data!.docs;
+
+        if (_selectedCategory != 'All') {
+          stocks = stocks
+              .where((doc) => doc['type'] == _selectedCategory)
+              .toList();
+        }
+
+        if (stocks.isEmpty) {
+          return const Center(child: Text('No items in this category.'));
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: stocks.length,
+          itemBuilder: (context, index) {
+            final stock = stocks[index];
+            final name = stock['name'];
+            final quantity = stock['quantity'];
+            final limit = stock['limit'] ?? '';
+            final type = stock['type'] ?? 'N/A';
+
+            return Slidable(
+              key: ValueKey(name),
+              startActionPane:
+                  _buildActionPane(stock.id, name, quantity, limit, type),
+              endActionPane:
+                  _buildActionPane(stock.id, name, quantity, limit, type),
+              child: Card(
+                color: (int.tryParse(quantity.toString()) ?? 0) <=
+                        (int.tryParse(limit.toString()) ?? 0)
+                    ? Colors.red.shade100
+                    : const Color(0xFFF0F5F2),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                margin: const EdgeInsets.only(bottom: 16),
+                elevation: 3,
+                child: ListTile(
+                  leading: Icon(
+                    (int.tryParse(quantity.toString()) ?? 0) <=
+                            (int.tryParse(limit.toString()) ?? 0)
+                        ? Icons.warning_amber_rounded
+                        : Iconsax.box,
+                    color: (int.tryParse(quantity.toString()) ?? 0) <=
+                            (int.tryParse(limit.toString()) ?? 0)
+                        ? Colors.red
+                        : const Color(0xFF4B8673),
                   ),
-                ],
+                  title: Text(name,
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle:
+                      Text('Quantity: $quantity\nLimit: $limit\nType: $type'),
+                ),
               ),
             );
-          }
-
-          final stocks = snapshot.data!.docs;
-
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: stocks.length,
-            itemBuilder: (context, index) {
-              final stock = stocks[index];
-              final name = stock['name'];
-              final quantity = stock['quantity'];
-
-              return Slidable(
-                key: ValueKey(name),
-                startActionPane: _buildActionPane(stock.id, name, quantity),
-                endActionPane: _buildActionPane(stock.id, name, quantity),
-                child: Card(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  margin: const EdgeInsets.only(bottom: 16),
-                  elevation: 3,
-                  child: ListTile(
-                    leading: const Icon(Iconsax.box, color: Color(0xFF4B8673)),
-                    title: Text(
-                      name ?? '',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    subtitle: Text(
-                      'Quantity: $quantity',
-                      style: const TextStyle(color: Colors.grey),
-                    ),
-                  ),
-                ),
-              );
-            },
-          );
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddStockSheet(),
-        backgroundColor: const Color(0xFF4B8673),
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
+          },
+        );
+      },
     );
   }
 
-  ActionPane _buildActionPane(String docId, String name, String quantity) {
+  ActionPane _buildActionPane(
+    String docId,
+    String name,
+    String quantity,
+    String limit,
+    String type,
+  ) {
     return ActionPane(
       motion: const DrawerMotion(),
       children: [
         SlidableAction(
-          onPressed:
-              (_) => _showAddStockSheet(
-                docId: docId,
-                initialName: name,
-                initialQuantity: quantity,
-              ),
+          onPressed: (_) => _showAddStockSheet(
+            docId: docId,
+            initialName: name,
+            initialQuantity: quantity,
+            initialLimit: limit,
+            initialType: type,
+          ),
           backgroundColor: Colors.blueAccent,
           foregroundColor: Colors.white,
           icon: Icons.edit,
@@ -277,9 +329,62 @@ class _StockPageState extends State<StockPage> {
   }
 
   @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          'Stock',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        foregroundColor: Colors.black,
+      ),
+      body: Column(
+        children: [
+          SizedBox(
+            height: 50,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              itemCount: _categories.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              itemBuilder: (context, index) {
+                final category = _categories[index];
+                final isSelected = _selectedCategory == category;
+                return ChoiceChip(
+                  label: Text(category),
+                  selected: isSelected,
+                  onSelected: (_) {
+                    setState(() {
+                      _selectedCategory = category;
+                    });
+                  },
+                  selectedColor: const Color(0xFF4B8673),
+                  backgroundColor: Colors.grey.shade200,
+                  labelStyle: TextStyle(
+                    color: isSelected ? Colors.white : Colors.black,
+                  ),
+                );
+              },
+            ),
+          ),
+          Expanded(child: _buildStockList()),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showAddStockSheet(),
+        backgroundColor: const Color(0xFF4B8673),
+        child: const Icon(Icons.add, color: Colors.white),
+      ),
+    );
+  }
+
+  @override
   void dispose() {
     _nameController.dispose();
     _numberController.dispose();
+    _limitController.dispose();
     super.dispose();
   }
 }
