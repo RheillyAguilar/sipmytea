@@ -126,87 +126,94 @@ class _LoginPageState extends State<LoginPage>
     }
   }
 
-  Widget _buildSavedAccountsUI() {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
+ Widget _buildSavedAccountsUI() {
+  return Padding(
+    padding: const EdgeInsets.all(8.0),
+    child: GridView.count(
+      shrinkWrap: true,
+      crossAxisCount: 3,
+      crossAxisSpacing: 5,
+      mainAxisSpacing: 5,
+      physics: NeverScrollableScrollPhysics(), 
       children: [
-        Wrap(
-          spacing: 20,
-          children: [
-            ..._savedAccounts.map((account) {
-              return GestureDetector(
-                onTap: () => _login(
-                  email: account['email'],
-                  password: account['password'],
-                ),
-                onLongPress: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      title: const Text('Remove account'),
-                      content: Text('Do you want to remove ${account['username']}?'),
-                      actions: [
-                        ElevatedButton(
-                          onPressed: () {
-                            Navigator.pop(context);
-                            _removeAccount(account['email'] ?? '');
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Color(0xFF4B8673),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              side: BorderSide.none
-                            )
-                          ),
-                          child: const Text('Remove', style: TextStyle(color: Colors.white),),
+        ..._savedAccounts.map((account) {
+          return GestureDetector(
+            onTap: () => _login(
+              email: account['email'],
+              password: account['password'],
+            ),
+            onLongPress: () {
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Remove account'),
+                  content: Text('Do you want to remove ${account['username']}?'),
+                  actions: [
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _removeAccount(account['email'] ?? '');
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF4B8673),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          style: TextButton.styleFrom(
-                            foregroundColor: Colors.grey[700]
-                          ),
-                          child: const Text('Cancel'),
-                        ),
-                      ],
+                      ),
+                      child: const Text(
+                        'Remove',
+                        style: TextStyle(color: Colors.white),
+                      ),
                     ),
-                  );
-                },
-                child: Column(
-                  children: [
-                    CircleAvatar(
-                      radius: 35,
-                      backgroundImage:
-                          AssetImage(account['image'] ?? _profileImages[0]),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.grey[700],
+                      ),
+                      child: const Text('Cancel'),
                     ),
-                    const SizedBox(height: 8),
-                    Text(account['username'] ?? ''),
                   ],
                 ),
               );
-            }),
-            GestureDetector(
-              onTap: () {
-                setState(() {
-                  _savedAccounts.clear();
-                });
-              },
-              child: Column(
-                children: const [
-                  CircleAvatar(
-                    radius: 35,
-                    backgroundColor: Color(0xFF4B8673),
-                    child: Icon(Iconsax.add, size: 40, color: Colors.white),
-                  ),
-                  SizedBox(height: 8),
-                  Text("Add account"),
-                ],
-              ),
+            },
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircleAvatar(
+                  radius: 35,
+                  backgroundImage:
+                      AssetImage(account['image'] ?? _profileImages[0]),
+                ),
+                const SizedBox(height: 8),
+                Text(account['username'] ?? ''),
+              ],
             ),
-          ],
+          );
+        }),
+        GestureDetector(
+          onTap: () {
+            setState(() {
+              _savedAccounts.clear();
+            });
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              CircleAvatar(
+                radius: 35,
+                backgroundColor: Color(0xFF4B8673),
+                child: Icon(Iconsax.add, size: 40, color: Colors.white),
+              ),
+              SizedBox(height: 8),
+              Text("Add account"),
+            ],
+          ),
         ),
       ],
-    );
-  }
+    ),
+  );
+}
+
 
   @override
   void dispose() {
