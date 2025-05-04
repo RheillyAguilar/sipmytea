@@ -199,12 +199,7 @@ class _LoginPageState extends State<LoginPage>
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    (account['username'] ?? '').isNotEmpty
-                        ? account['username']![0].toUpperCase() +
-                            account['username']!.substring(1)
-                        : '',
-                  ),
+                  Text((account['username'] ?? '').split(' ').first),
                 ],
               ),
             );
