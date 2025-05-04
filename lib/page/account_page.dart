@@ -33,6 +33,7 @@ class _LoginPageState extends State<LoginPage>
     'assets/profile3.jpg',
     'assets/profile4.jpg',
     'assets/profile5.jpg',
+    'assets/profile6.jpg',
   ];
 
   @override

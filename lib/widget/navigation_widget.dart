@@ -34,7 +34,6 @@ class _NavigationWidgetState extends State<NavigationWidget> {
     profileImage = 'assets/profile$index.jpg';
   }
 
-  // ✅ This function capitalizes the first letter of the name
   String capitalizeFirstLetter(String text) {
     if (text.isEmpty) return text;
     return text[0].toUpperCase() + text.substring(1);
