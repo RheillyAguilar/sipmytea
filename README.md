@@ -24,3 +24,7 @@
 - Warning if the stock level is reach the limit
 - Display First name only in Save Account
 - Username and Random Profile in Navigation
+
+### v2.5
+- Finished Good UI
+- Firestore functionality
