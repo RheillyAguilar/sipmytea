@@ -25,8 +25,18 @@ class _CartPageState extends State<CartPage> {
 
   String _monthName(int month) {
     const months = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
     ];
     return months[month - 1];
   }
@@ -40,63 +50,72 @@ class _CartPageState extends State<CartPage> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-          left: 24,
-          right: 24,
-          top: 24,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Enter Amount Paid', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 20),
-            TextField(
-              controller: controller,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: InputDecoration(
-                prefixText: '₱ ',
-                hintText: 'Enter amount',
-                filled: true,
-                fillColor: const Color(0xFFF6F6F6),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-              ),
+      builder:
+          (context) => Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+              left: 24,
+              right: 24,
+              top: 24,
             ),
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                ElevatedButton(
-                  onPressed: () {
-                    final amount = double.tryParse(controller.text);
-                    Navigator.pop(context, amount);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4B8673),
-                    shape: RoundedRectangleBorder(
+                const Text(
+                  'Enter Amount Paid',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: controller,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: InputDecoration(
+                    prefixText: '₱ ',
+                    hintText: 'Enter amount',
+                    filled: true,
+                    fillColor: const Color(0xFFF6F6F6),
+                    border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
                     ),
                   ),
-                  child: const Text('Confirm', style: TextStyle(color: Colors.white)),
                 ),
-                const SizedBox(width: 12),
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    ElevatedButton(
+                      onPressed: () {
+                        final amount = double.tryParse(controller.text);
+                        Navigator.pop(context, amount);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF4B8673),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        'Confirm',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cancel'),
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
-        ),
-      ),
+          ),
     );
   }
 
-   Future<void> _handleWarning(String productName, int updatedQty) async {
+  Future<void> _handleWarning(String productName, int updatedQty) async {
     await showDialog(
       context: context,
       barrierDismissible: false,
@@ -162,7 +181,6 @@ class _CartPageState extends State<CartPage> {
     );
   }
 
-
   Future<void> _deductStockAndAlert({
     required String docName,
     required int usedQty,
@@ -199,7 +217,9 @@ class _CartPageState extends State<CartPage> {
 
     if (mounted) {
       setState(() {
-        sales.addAll(cartItems.map((e) => SaleItem(item: e, dateTime: DateTime.now())));
+        sales.addAll(
+          cartItems.map((e) => SaleItem(item: e, dateTime: DateTime.now())),
+        );
         cartItems.clear();
       });
       _showSnackBar('Order confirmed!');
@@ -228,6 +248,8 @@ class _CartPageState extends State<CartPage> {
 
   Future<void> _handleInventory(CartItem item) async {
     final name = item.productName.toLowerCase();
+    final category = item.category.toLowerCase();
+    final size = item.size.toLowerCase();
 
     final deductions = <String, int>{
       if (['regular beef', 'cheese beef'].any(name.contains)) 'Patties': 2,
@@ -238,8 +260,13 @@ class _CartPageState extends State<CartPage> {
       if (name.contains('combo')) 'Fries': 120,
       if (name.contains('egg')) 'Egg': 2,
       if (name.contains('silog')) 'Egg': 1,
-      if (['regular beef', 'cheese beef', 'egg sandwich'].any(name.contains)) 'Bans': 2,
+      if (['regular beef', 'cheese beef', 'egg sandwich'].any(name.contains))
+        'Buns': 2,
       if (name.contains('combo')) 'Bans': 1,
+      ..._getSmoothieDeductions(category, name, size),
+      ..._getFreshTeaDeduction(category, name, size),
+      ..._getCreampuffDeduction(category, name, size),
+      ..._getClassicDeduction(category, name, size)
     };
 
     for (final entry in deductions.entries) {
@@ -253,18 +280,13 @@ class _CartPageState extends State<CartPage> {
         );
       }
     }
-
     // Handle cups
-    final cupDocName = {
-      'regular': 'Regular Cups',
-      'large': 'Large Cups',
-    }[item.size.toLowerCase()];
+    final cupDocName = {'regular': 'Regular Cups', 'large': 'Large Cups'}[size];
     if (cupDocName != null) {
       final doc = await _firestore.collection('stock').doc(cupDocName).get();
       final limit = int.tryParse(doc['limit'].toString()) ?? 0;
       await _deductStockAndAlert(docName: cupDocName, usedQty: 1, limit: limit);
     }
-
     // Handle straw
     final strawDoc = await _firestore.collection('stock').doc('Straw').get();
     if (strawDoc.exists) {
@@ -272,6 +294,108 @@ class _CartPageState extends State<CartPage> {
       await _deductStockAndAlert(docName: 'Straw', usedQty: 1, limit: limit);
     }
   }
+
+  Map<String, int> _getSmoothieDeductions(
+    String category,
+    String name,
+    String size,
+  ) {
+    final smoothieMap = {
+      'chocolate': 'Chocolate',
+      'strawberry': 'Strawberry',
+      'blueberry': 'Blueberry',
+      'mixberries': 'Mixberries',
+      'coffee': 'Coffee',
+      'mocha': 'Mocha',
+    };
+
+    return {
+      for (final entry in smoothieMap.entries)
+        if (category == 'smoothies' && name.contains(entry.key))
+          entry.value: size == 'regular' ? 40 : 50,
+    };
+  }
+
+  Map<String, int> _getFreshTeaDeduction(
+    String category,
+    String name,
+    String size,
+  ) {
+    final freshTeaMap = {
+      'lychee': 'Lychee',
+      'wintermelon': 'Wintermelon',
+      'blueberry': 'Blueberry',
+      'strawberry': 'Strawberry',
+      'kiwi yakult': ' Kiwi Yakult',
+    };
+
+    return {
+      for (final entry in freshTeaMap.entries)
+        if (category == 'fresh tea' && name.contains(entry.key))
+          entry.value: size == 'regular' ? 40 : 50,
+    };
+  }
+
+  Map<String, int> _getCreampuffDeduction(
+    String category,
+    String name,
+    String size,
+  ) {
+    final creampuffOverloadMap = {
+      'honeydew': 'Honeydew',
+      'taro': 'Taro',
+      'match': 'Matcha',
+      'dark chocolate': 'Dark Chocolate',
+      'cookies and cream': 'Cookies and Cream',
+      'chocomalt': 'Chocomalt',
+    };
+
+    return {
+      for (final entry in creampuffOverloadMap.entries)
+        if (category == 'creampuff overload' && name.contains(entry.key))
+          entry.value: 20,
+    };
+  }
+
+Map<String, int> _getClassicDeduction(
+  String category,
+  String name,
+  String size
+) {
+  final highDeduct = {
+    'wintermelon': 'Wintermelon',
+    'blueberry' : 'Blueberry',
+    'strawberry' : 'Strawberry',
+    'lychee' : 'Lychee',
+    'yogurt' : 'Yogurt',
+    'brown sugar' : 'Brown Sugar',
+    'plain' : 'Plain'
+   };
+
+  final lowDeduct = {
+     'okinawa' : 'Okinawa',
+    'taro' : 'Taro',
+    'honeydew' : 'Honeydew',
+    'chocolate' : 'chocolate',
+    'coffee' : 'coffee',
+  };
+
+  if (category == 'classic milktea') {
+    for (final entry in highDeduct.entries) {
+      if (name.toLowerCase().contains(entry.key)) {
+        return {entry.value: size == 'regular' ? 30 : 40};
+      }
+    }
+    for (final entry in lowDeduct.entries) {
+      if (name.toLowerCase().contains(entry.key)) {
+        return {entry.value: size == 'regular' ? 15 : 20};
+      }
+    }
+  }
+
+  return {};
+}
+
 
   Future<DocumentSnapshot?> _getExistingStockDoc(List<String> names) async {
     for (final name in names) {
@@ -284,21 +408,27 @@ class _CartPageState extends State<CartPage> {
   Future<void> _showChangeDialog(double change) async {
     return showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Change', style: TextStyle(fontWeight: FontWeight.bold)),
-        content: Text('Change: ₱${change.toStringAsFixed(2)}'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
+      builder:
+          (_) => AlertDialog(
+            title: const Text(
+              'Change',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            content: Text('Change: ₱${change.toStringAsFixed(2)}'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
   void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -307,10 +437,7 @@ class _CartPageState extends State<CartPage> {
       backgroundColor: const Color(0xFFF9F9F9),
       body: SafeArea(
         child: Column(
-          children: [
-            Expanded(child: _buildCartList()),
-            _buildCartFooter(),
-          ],
+          children: [Expanded(child: _buildCartList()), _buildCartFooter()],
         ),
       ),
     );
@@ -355,13 +482,22 @@ class _CartPageState extends State<CartPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Category: ${item.category}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-            Text('Name: ${item.productName}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+            Text(
+              'Category: ${item.category}',
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            ),
+            Text(
+              'Name: ${item.productName}',
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            ),
             const SizedBox(height: 4),
             Text('Size: ${item.size}'),
             if (item.addOns.isNotEmpty) ...[
               const SizedBox(height: 8),
-              const Text("Add-ons:", style: TextStyle(fontWeight: FontWeight.w500)),
+              const Text(
+                "Add-ons:",
+                style: TextStyle(fontWeight: FontWeight.w500),
+              ),
               ...item.addOns.map((a) => Text('- $a')),
             ],
             const SizedBox(height: 8),
@@ -369,7 +505,10 @@ class _CartPageState extends State<CartPage> {
               alignment: Alignment.centerRight,
               child: Text(
                 "₱${item.totalPrice.toStringAsFixed(2)}",
-                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green,
+                ),
               ),
             ),
           ],
@@ -384,15 +523,27 @@ class _CartPageState extends State<CartPage> {
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, -2))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 10,
+            offset: Offset(0, -2),
+          ),
+        ],
       ),
       child: Column(
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Total:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              Text('₱${totalCartPrice.toStringAsFixed(2)}', style: const TextStyle(fontSize: 18, color: Colors.green)),
+              const Text(
+                'Total:',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              Text(
+                '₱${totalCartPrice.toStringAsFixed(2)}',
+                style: const TextStyle(fontSize: 18, color: Colors.green),
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -403,9 +554,14 @@ class _CartPageState extends State<CartPage> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF4B8673),
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
-              child: const Text('Confirm Order', style: TextStyle(color: Colors.white)),
+              child: const Text(
+                'Confirm Order',
+                style: TextStyle(color: Colors.white),
+              ),
             ),
           ),
         ],
