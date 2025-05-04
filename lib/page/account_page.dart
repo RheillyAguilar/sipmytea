@@ -63,7 +63,9 @@ class _LoginPageState extends State<LoginPage>
 
     setState(() {
       _savedAccounts =
-          saved.map((entry) => Map<String, String>.from(jsonDecode(entry))).toList();
+          saved
+              .map((entry) => Map<String, String>.from(jsonDecode(entry)))
+              .toList();
     });
   }
 
@@ -82,17 +84,22 @@ class _LoginPageState extends State<LoginPage>
     final passwordText = password ?? _passwordController.text;
 
     try {
-      final querySnapshot = await FirebaseFirestore.instance
-          .collection('account')
-          .where('email', isEqualTo: emailText)
-          .where('password', isEqualTo: passwordText)
-          .get();
+      final querySnapshot =
+          await FirebaseFirestore.instance
+              .collection('account')
+              .where('email', isEqualTo: emailText)
+              .where('password', isEqualTo: passwordText)
+              .get();
 
       if (querySnapshot.docs.isNotEmpty) {
         final prefs = await SharedPreferences.getInstance();
         final userData = querySnapshot.docs.first.data();
         final isAdmin = userData['admin'] ?? false;
-        final username = userData['username'] ?? '';
+        final rawUsername = userData['username'] ?? '';
+        final username =
+            rawUsername.isNotEmpty
+                ? rawUsername[0].toUpperCase() + rawUsername.substring(1)
+                : '';
 
         if (_saveAccount) {
           List<String> saved = prefs.getStringList('savedAccounts') ?? [];
@@ -111,7 +118,8 @@ class _LoginPageState extends State<LoginPage>
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => MainPage(isAdmin: isAdmin, username: username),
+            builder:
+                (context) => MainPage(isAdmin: isAdmin, username: username),
           ),
         );
       } else {
@@ -120,100 +128,109 @@ class _LoginPageState extends State<LoginPage>
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: ${e.toString()}')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
     }
   }
 
- Widget _buildSavedAccountsUI() {
-  return Padding(
-    padding: const EdgeInsets.all(8.0),
-    child: GridView.count(
-      shrinkWrap: true,
-      crossAxisCount: 3,
-      crossAxisSpacing: 5,
-      mainAxisSpacing: 5,
-      physics: NeverScrollableScrollPhysics(), 
-      children: [
-        ..._savedAccounts.map((account) {
-          return GestureDetector(
-            onTap: () => _login(
-              email: account['email'],
-              password: account['password'],
-            ),
-            onLongPress: () {
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Remove account'),
-                  content: Text('Do you want to remove ${account['username']}?'),
-                  actions: [
-                    ElevatedButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _removeAccount(account['email'] ?? '');
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF4B8673),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+  Widget _buildSavedAccountsUI() {
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: GridView.count(
+        shrinkWrap: true,
+        crossAxisCount: 3,
+        crossAxisSpacing: 5,
+        mainAxisSpacing: 5,
+        physics: NeverScrollableScrollPhysics(),
+        children: [
+          ..._savedAccounts.map((account) {
+            return GestureDetector(
+              onTap:
+                  () => _login(
+                    email: account['email'],
+                    password: account['password'],
+                  ),
+              onLongPress: () {
+                showDialog(
+                  context: context,
+                  builder:
+                      (context) => AlertDialog(
+                        title: const Text('Remove account'),
+                        content: Text(
+                          'Do you want to remove ${account['username']}?',
                         ),
+                        actions: [
+                          ElevatedButton(
+                            onPressed: () {
+                              Navigator.pop(context);
+                              _removeAccount(account['email'] ?? '');
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF4B8673),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text(
+                              'Remove',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.grey[700],
+                            ),
+                            child: const Text('Cancel'),
+                          ),
+                        ],
                       ),
-                      child: const Text(
-                        'Remove',
-                        style: TextStyle(color: Colors.white),
-                      ),
+                );
+              },
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircleAvatar(
+                    radius: 35,
+                    backgroundImage: AssetImage(
+                      account['image'] ?? _profileImages[0],
                     ),
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.grey[700],
-                      ),
-                      child: const Text('Cancel'),
-                    ),
-                  ],
-                ),
-              );
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    (account['username'] ?? '').isNotEmpty
+                        ? account['username']![0].toUpperCase() +
+                            account['username']!.substring(1)
+                        : '',
+                  ),
+                ],
+              ),
+            );
+          }),
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _savedAccounts.clear();
+              });
             },
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              children: [
+              children: const [
                 CircleAvatar(
                   radius: 35,
-                  backgroundImage:
-                      AssetImage(account['image'] ?? _profileImages[0]),
+                  backgroundColor: Color(0xFF4B8673),
+                  child: Icon(Iconsax.add, size: 40, color: Colors.white),
                 ),
-                const SizedBox(height: 8),
-                Text(account['username'] ?? ''),
+                SizedBox(height: 8),
+                Text("Add account"),
               ],
             ),
-          );
-        }),
-        GestureDetector(
-          onTap: () {
-            setState(() {
-              _savedAccounts.clear();
-            });
-          },
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: const [
-              CircleAvatar(
-                radius: 35,
-                backgroundColor: Color(0xFF4B8673),
-                child: Icon(Iconsax.add, size: 40, color: Colors.white),
-              ),
-              SizedBox(height: 8),
-              Text("Add account"),
-            ],
           ),
-        ),
-      ],
-    ),
-  );
-}
-
+        ],
+      ),
+    );
+  }
 
   @override
   void dispose() {
@@ -235,91 +252,103 @@ class _LoginPageState extends State<LoginPage>
               position: _slideAnimation,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                child: _savedAccounts.isNotEmpty
-                    ? _buildSavedAccountsUI()
-                    : Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Image.asset('assets/sipmytea_logo.png', height: 120),
-                          const SizedBox(height: 32),
-                          TextField(
-                            controller: _emailController,
-                            decoration: InputDecoration(
-                              labelText: 'Email',
-                              prefixIcon: const Icon(Icons.person),
-                              filled: true,
-                              fillColor: Colors.white,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide.none,
-                              ),
+                child:
+                    _savedAccounts.isNotEmpty
+                        ? _buildSavedAccountsUI()
+                        : Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Image.asset(
+                              'assets/sipmytea_logo.png',
+                              height: 120,
                             ),
-                          ),
-                          const SizedBox(height: 16),
-                          TextField(
-                            controller: _passwordController,
-                            obscureText: !_isPasswordVisible,
-                            decoration: InputDecoration(
-                              labelText: 'Password',
-                              prefixIcon: const Icon(Icons.lock),
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  _isPasswordVisible
-                                      ? Icons.visibility
-                                      : Icons.visibility_off,
-                                ),
-                                onPressed: () {
-                                  setState(() {
-                                    _isPasswordVisible = !_isPasswordVisible;
-                                  });
-                                },
-                              ),
-                              filled: true,
-                              fillColor: Colors.white,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide.none,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Row(
-                            children: [
-                              Checkbox(
-                                value: _saveAccount,
-                                onChanged: (value) {
-                                  setState(() {
-                                    _saveAccount = value!;
-                                  });
-                                },
-                                activeColor: const Color(0xFF4B8673),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(4),
+                            const SizedBox(height: 32),
+                            TextField(
+                              controller: _emailController,
+                              decoration: InputDecoration(
+                                labelText: 'Email',
+                                prefixIcon: const Icon(Icons.person),
+                                filled: true,
+                                fillColor: Colors.white,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide.none,
                                 ),
                               ),
-                              const Text('Save account', style: TextStyle(fontSize: 15)),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: _login,
-                              style: ElevatedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 14),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
+                            ),
+                            const SizedBox(height: 16),
+                            TextField(
+                              controller: _passwordController,
+                              obscureText: !_isPasswordVisible,
+                              decoration: InputDecoration(
+                                labelText: 'Password',
+                                prefixIcon: const Icon(Icons.lock),
+                                suffixIcon: IconButton(
+                                  icon: Icon(
+                                    _isPasswordVisible
+                                        ? Icons.visibility
+                                        : Icons.visibility_off,
+                                  ),
+                                  onPressed: () {
+                                    setState(() {
+                                      _isPasswordVisible = !_isPasswordVisible;
+                                    });
+                                  },
                                 ),
-                                backgroundColor: const Color(0xFF4B8673),
-                              ),
-                              child: const Text(
-                                'Log in',
-                                style: TextStyle(fontSize: 16, color: Colors.white),
+                                filled: true,
+                                fillColor: Colors.white,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide.none,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Checkbox(
+                                  value: _saveAccount,
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _saveAccount = value!;
+                                    });
+                                  },
+                                  activeColor: const Color(0xFF4B8673),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                ),
+                                const Text(
+                                  'Save account',
+                                  style: TextStyle(fontSize: 15),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: _login,
+                                style: ElevatedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  backgroundColor: const Color(0xFF4B8673),
+                                ),
+                                child: const Text(
+                                  'Log in',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
               ),
             ),
           ),
