@@ -79,171 +79,167 @@ class _FinishedPageState extends State<FinishedPage> {
     );
   }
 
-  // Reusable method for adding and editing finished goods modal
   Future<void> _showFinishedGoodModal({DocumentSnapshot? item}) async {
-    final TextEditingController nameController = TextEditingController(text: item?['name']);
-    final TextEditingController quantityController = TextEditingController(text: item?['quantity'].toString());
-    List<MapEntry<TextEditingController, TextEditingController>> ingredientControllers = (item?['ingredients'] as List?)
-            ?.map<MapEntry<TextEditingController, TextEditingController>>((ingredient) {
-      return MapEntry(TextEditingController(text: ingredient['name']), TextEditingController(text: ingredient['quantity'].toString()));
-    }).toList() ??
-        [MapEntry(TextEditingController(), TextEditingController())];
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return Padding(
-              padding: EdgeInsets.only(
-                top: 20,
-                left: 20,
-                right: 20,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-              ),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      item == null ? 'Add Finished Good' : 'Edit Finished Good',
-                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 20),
-                    _buildTextField(nameController, 'Name'),
-                    const SizedBox(height: 12),
-                    _buildTextField(quantityController, 'Quantity', inputType: TextInputType.number),
-                    const SizedBox(height: 20),
-                    const Align(alignment: Alignment.centerLeft, child: Text('Ingredients', style: TextStyle(fontWeight: FontWeight.bold))),
-                    const SizedBox(height: 8),
-                    ...ingredientControllers.asMap().entries.map((entry) {
-                      int index = entry.key;
-                      TextEditingController nameCtrl = entry.value.key;
-                      TextEditingController qtyCtrl = entry.value.value;
-                      return Row(
-                        children: [
-                          Expanded(child: Padding(padding: const EdgeInsets.only(right: 4, bottom: 8), child: _buildTextField(nameCtrl, 'Name'))),
-                          Expanded(child: Padding(padding: const EdgeInsets.only(left: 4, bottom: 8), child: _buildTextField(qtyCtrl, 'Quantity', inputType: TextInputType.number))),
-                          if (ingredientControllers.length > 1)
-                            IconButton(
-                              icon: const Icon(Icons.remove_circle, color: Colors.red),
-                              onPressed: () {
-                                setState(() {
-                                  ingredientControllers.removeAt(index);
-                                });
-                              },
-                            ),
-                        ],
-                      );
-                    }),
-                    TextButton.icon(
-                      onPressed: () {
-                        setState(() {
-                          ingredientControllers.add(MapEntry(TextEditingController(), TextEditingController()));
-                        });
-                      },
-                      icon: const Icon(Icons.add, color: Color(0xFF4B8673)),
-                      label: const Text('Add Ingredient', style: TextStyle(color: Color(0xFF4B8673))),
-                    ),
-                    const SizedBox(height: 20),
-                    ElevatedButton(
-                      onPressed: () async {
-                        String name = nameController.text.trim();
-                        String quantity = quantityController.text.trim();
-
-                        if (name.isEmpty || quantity.isEmpty || ingredientControllers.any((pair) => pair.key.text.trim().isEmpty || pair.value.text.trim().isEmpty)) {
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please fill in all fields')));
-                          return;
-                        }
-
-                        try {
-                          int qty = int.tryParse(quantity) ?? 0;
-                          List<Map<String, dynamic>> ingredients = ingredientControllers.map((pair) {
-                            return {
-                              'name': pair.key.text.trim(),
-                              'quantity': int.tryParse(pair.value.text.trim()) ?? 0,
-                            };
-                          }).toList();
-
-                          Navigator.pop(context);
-
-                          // Add or update finished good
-                          final docRef = finishedGoodsRef.doc(name);
-                          final docSnapshot = await docRef.get();
-
-                          if (docSnapshot.exists) {
-                            int currentQty = int.tryParse(docSnapshot['quantity'].toString()) ?? 0;
-                            List<dynamic> existingIngredients = docSnapshot['ingredients'] ?? [];
-                            Map<String, int> ingredientMap = {for (var ing in existingIngredients) ing['name']: ing['quantity']};
-
-                            for (var ing in ingredients) {
-                              String ingName = ing['name'];
-                              int ingQty = ing['quantity'];
-                              ingredientMap[ingName] = (ingredientMap[ingName] ?? 0) + ingQty;
-                            }
-
-                            List<Map<String, dynamic>> mergedIngredients = ingredientMap.entries
-                                .map((e) => {'name': e.key, 'quantity': e.value})
-                                .toList();
-
-                            await docRef.update({'quantity': currentQty + qty, 'ingredients': mergedIngredients});
-                          } else {
-                            await docRef.set({'name': name, 'quantity': qty, 'ingredients': ingredients});
-                          }
-
-                          // Deduct stock for each ingredient
-                          for (var ing in ingredients) {
-                            DocumentReference stockDoc = stockRef.doc(ing['name']);
-                            DocumentSnapshot stockSnapshot = await stockDoc.get();
-
-                            if (!stockSnapshot.exists) {
-                              throw Exception("Stock for ${ing['name']} does not exist.");
-                            }
-
-                            int currentStockQty = int.tryParse(stockSnapshot.get('quantity').toString()) ?? 0;
-                            if (currentStockQty < ing['quantity']) {
-                              throw Exception("Not enough stock for ${ing['name']} (have: $currentStockQty, need: ${ing['quantity']}).");
-                            }
-
-                            int newQty = currentStockQty - (ing['quantity'] as num).toInt();
-                            await stockDoc.update({'quantity': newQty});
-
-                            // Handle stock warning
-                            String? limitStr = stockSnapshot.get('limit');
-                            int limit = int.tryParse(limitStr.toString()) ?? 0;
-                            if (newQty <= limit) {
-                              await _handleWarning(ing['name'], newQty);
-                            }
-                          }
-                        } catch (e) {
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: const Size(double.infinity, 50),
-                        backgroundColor: const Color(0xFF4B8673),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-child: Text(
-  item == null ? 'Add' : 'Save',
-  style: const TextStyle(color: Colors.white),
-),
-
-                    ),
-                  ],
-                ),
-              ),
+  final TextEditingController nameController = TextEditingController(text: item?['name']);
+  final TextEditingController quantityController = TextEditingController(text: item?['quantity'].toString());
+  List<MapEntry<TextEditingController, TextEditingController>> ingredientControllers =
+      (item?['ingredients'] as List?)?.map<MapEntry<TextEditingController, TextEditingController>>((ingredient) {
+            return MapEntry(
+              TextEditingController(text: ingredient['name']),
+              TextEditingController(text: ingredient['quantity'].toString()),
             );
-          },
-        );
-      },
-    );
-  }
+          }).toList() ??
+          [MapEntry(TextEditingController(), TextEditingController())];
+
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+    builder: (context) {
+      return StatefulBuilder(
+        builder: (context, setState) {
+          return Padding(
+            padding: EdgeInsets.only(
+              top: 20,
+              left: 20,
+              right: 20,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    item == null ? 'Add Finished Good' : 'Edit Finished Good',
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 20),
+                  _buildTextField(nameController, 'Name'),
+                  const SizedBox(height: 12),
+                  _buildTextField(quantityController, 'Quantity', inputType: TextInputType.number),
+                  const SizedBox(height: 20),
+                  const Align(alignment: Alignment.centerLeft, child: Text('Ingredients', style: TextStyle(fontWeight: FontWeight.bold))),
+                  const SizedBox(height: 8),
+                  ...ingredientControllers.asMap().entries.map((entry) {
+                    int index = entry.key;
+                    TextEditingController nameCtrl = entry.value.key;
+                    TextEditingController qtyCtrl = entry.value.value;
+                    return Row(
+                      children: [
+                        Expanded(child: Padding(padding: const EdgeInsets.only(right: 4, bottom: 8), child: _buildTextField(nameCtrl, 'Name'))),
+                        Expanded(child: Padding(padding: const EdgeInsets.only(left: 4, bottom: 8), child: _buildTextField(qtyCtrl, 'Quantity', inputType: TextInputType.number))),
+                        if (ingredientControllers.length > 1)
+                          IconButton(
+                            icon: const Icon(Icons.remove_circle, color: Colors.red),
+                            onPressed: () {
+                              setState(() {
+                                ingredientControllers.removeAt(index);
+                              });
+                            },
+                          ),
+                      ],
+                    );
+                  }),
+                  TextButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        ingredientControllers.add(MapEntry(TextEditingController(), TextEditingController()));
+                      });
+                    },
+                    icon: const Icon(Icons.add, color: Color(0xFF4B8673)),
+                    label: const Text('Add Ingredient', style: TextStyle(color: Color(0xFF4B8673))),
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: () async {
+                      String name = nameController.text.trim();
+                      String quantity = quantityController.text.trim();
+
+                      if (name.isEmpty || quantity.isEmpty || ingredientControllers.any((pair) => pair.key.text.trim().isEmpty || pair.value.text.trim().isEmpty)) {
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please fill in all fields')));
+                        return;
+                      }
+
+                      try {
+                        int qty = int.tryParse(quantity) ?? 0;
+                        List<Map<String, dynamic>> ingredients = ingredientControllers.map((pair) {
+                          return {
+                            'name': pair.key.text.trim(),
+                            'quantity': int.tryParse(pair.value.text.trim()) ?? 0,
+                          };
+                        }).toList();
+
+                        Navigator.pop(context);
+
+                        final docRef = finishedGoodsRef.doc(name);
+                        final docSnapshot = await docRef.get();
+
+                        if (item != null) {
+                          // EDIT: Replace quantity and ingredients directly
+                          await docRef.update({
+                            'quantity': qty,
+                            'ingredients': ingredients,
+                          });
+                        } else {
+                          // ADD: Create new document
+                          await docRef.set({
+                            'name': name,
+                            'quantity': qty,
+                            'ingredients': ingredients,
+                          });
+                        }
+
+                        // Deduct stock for each ingredient
+                        for (var ing in ingredients) {
+                          DocumentReference stockDoc = stockRef.doc(ing['name']);
+                          DocumentSnapshot stockSnapshot = await stockDoc.get();
+
+                          if (!stockSnapshot.exists) {
+                            throw Exception("Stock for ${ing['name']} does not exist.");
+                          }
+
+                          int currentStockQty = int.tryParse(stockSnapshot.get('quantity').toString()) ?? 0;
+                          if (currentStockQty < ing['quantity']) {
+                            throw Exception("Not enough stock for ${ing['name']} (have: $currentStockQty, need: ${ing['quantity']}).");
+                          }
+
+                          int newQty = currentStockQty - (ing['quantity'] as num).toInt();
+                          await stockDoc.update({'quantity': newQty});
+
+                          // Check if stock is below limit
+                          String? limitStr = stockSnapshot.get('limit');
+                          int limit = int.tryParse(limitStr.toString()) ?? 0;
+                          if (newQty <= limit) {
+                            await _handleWarning(ing['name'], newQty);
+                          }
+                        }
+                      } catch (e) {
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 50),
+                      backgroundColor: const Color(0xFF4B8673),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: Text(
+                      item == null ? 'Add' : 'Save',
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    },
+  );
+}
+
 
   // Helper method to show an empty state
   Widget _buildEmptyState() {
@@ -353,8 +349,8 @@ child: Text(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: Colors.white,
-        title: const Text('Delete Stock?'),
-        content: const Text('Are you sure to delete this stock?'),
+        title: const Text('Delete Finished Goods?'),
+        content: const Text('Are you sure to delete this finished goods?'),
         actions: [
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
