@@ -94,8 +94,29 @@ class _MonthlyPageState extends State<MonthlyPage> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Confirm Reset'),
-        content: const Text('Are you sure you want to reset monthly sales?'),
+        content: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.warning_amber_rounded,
+                      color: Colors.red,
+                      size: 40,
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      'Alert',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 25),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 20),
+                Text('Are sure to reset the Monthly Sales?', style: TextStyle(fontSize: 15),)
+              ],
+            ),
         backgroundColor: Colors.white,
         actions: [
           ElevatedButton(

@@ -11,11 +11,18 @@ class FinishedPage extends StatefulWidget {
 }
 
 class _FinishedPageState extends State<FinishedPage> {
-  final CollectionReference finishedGoodsRef = FirebaseFirestore.instance.collection('finished_goods');
-  final CollectionReference stockRef = FirebaseFirestore.instance.collection('stock');
+  final CollectionReference finishedGoodsRef = FirebaseFirestore.instance
+      .collection('finished_goods');
+  final CollectionReference stockRef = FirebaseFirestore.instance.collection(
+    'stock',
+  );
 
   // Utility method for creating text fields
-  Widget _buildTextField(TextEditingController controller, String label, {TextInputType inputType = TextInputType.text}) {
+  Widget _buildTextField(
+    TextEditingController controller,
+    String label, {
+    TextInputType inputType = TextInputType.text,
+  }) {
     return TextField(
       controller: controller,
       keyboardType: inputType,
@@ -45,9 +52,7 @@ class _FinishedPageState extends State<FinishedPage> {
   // Helper method to build warning dialog
   Widget _buildWarningDialog(String itemName, int quantity) {
     return Dialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       backgroundColor: Colors.white,
       child: Padding(
         padding: const EdgeInsets.all(24.0),
@@ -120,9 +125,14 @@ class _FinishedPageState extends State<FinishedPage> {
   }
 
   Future<void> _showFinishedGoodModal({DocumentSnapshot? item}) async {
-    final TextEditingController nameController = TextEditingController(text: item?['name']);
-    final TextEditingController quantityController = TextEditingController(text: item?['quantity'].toString());
-    List<MapEntry<TextEditingController, TextEditingController>> ingredientControllers = _initializeIngredientControllers(item);
+    final TextEditingController nameController = TextEditingController(
+      text: item?['name'],
+    );
+    final TextEditingController quantityController = TextEditingController(
+      text: item?['quantity'].toString(),
+    );
+    List<MapEntry<TextEditingController, TextEditingController>>
+    ingredientControllers = _initializeIngredientControllers(item);
 
     showModalBottomSheet(
       context: context,
@@ -149,11 +159,20 @@ class _FinishedPageState extends State<FinishedPage> {
                     const SizedBox(height: 20),
                     _buildTextField(nameController, 'Name'),
                     const SizedBox(height: 12),
-                    _buildTextField(quantityController, 'Quantity', inputType: TextInputType.number),
+                    _buildTextField(
+                      quantityController,
+                      'Quantity',
+                      inputType: TextInputType.number,
+                    ),
                     const SizedBox(height: 20),
                     _buildIngredientsSection(setState, ingredientControllers),
                     const SizedBox(height: 20),
-                    _buildSaveButton(item, nameController, quantityController, ingredientControllers),
+                    _buildSaveButton(
+                      item,
+                      nameController,
+                      quantityController,
+                      ingredientControllers,
+                    ),
                   ],
                 ),
               ),
@@ -171,9 +190,12 @@ class _FinishedPageState extends State<FinishedPage> {
     );
   }
 
-  List<MapEntry<TextEditingController, TextEditingController>> _initializeIngredientControllers(DocumentSnapshot? item) {
+  List<MapEntry<TextEditingController, TextEditingController>>
+  _initializeIngredientControllers(DocumentSnapshot? item) {
     return (item?['ingredients'] as List?)
-            ?.map<MapEntry<TextEditingController, TextEditingController>>((ingredient) {
+            ?.map<MapEntry<TextEditingController, TextEditingController>>((
+              ingredient,
+            ) {
               return MapEntry(
                 TextEditingController(text: ingredient['name']),
                 TextEditingController(text: ingredient['quantity'].toString()),
@@ -183,7 +205,11 @@ class _FinishedPageState extends State<FinishedPage> {
         [MapEntry(TextEditingController(), TextEditingController())];
   }
 
-  Widget _buildIngredientsSection(StateSetter setState, List<MapEntry<TextEditingController, TextEditingController>> ingredientControllers) {
+  Widget _buildIngredientsSection(
+    StateSetter setState,
+    List<MapEntry<TextEditingController, TextEditingController>>
+    ingredientControllers,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -196,22 +222,38 @@ class _FinishedPageState extends State<FinishedPage> {
         ),
         const SizedBox(height: 8),
         ...ingredientControllers.asMap().entries.map((entry) {
-          return _buildIngredientRow(entry.key, entry.value, setState, ingredientControllers);
+          return _buildIngredientRow(
+            entry.key,
+            entry.value,
+            setState,
+            ingredientControllers,
+          );
         }),
         TextButton.icon(
           onPressed: () {
             setState(() {
-              ingredientControllers.add(MapEntry(TextEditingController(), TextEditingController()));
+              ingredientControllers.add(
+                MapEntry(TextEditingController(), TextEditingController()),
+              );
             });
           },
           icon: const Icon(Icons.add, color: Color(0xFF4B8673)),
-          label: const Text('Add Ingredient', style: TextStyle(color: Color(0xFF4B8673))),
+          label: const Text(
+            'Add Ingredient',
+            style: TextStyle(color: Color(0xFF4B8673)),
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildIngredientRow(int index, MapEntry<TextEditingController, TextEditingController> controllers, StateSetter setState, List<MapEntry<TextEditingController, TextEditingController>> ingredientControllers) {
+  Widget _buildIngredientRow(
+    int index,
+    MapEntry<TextEditingController, TextEditingController> controllers,
+    StateSetter setState,
+    List<MapEntry<TextEditingController, TextEditingController>>
+    ingredientControllers,
+  ) {
     return Row(
       children: [
         Expanded(
@@ -223,7 +265,11 @@ class _FinishedPageState extends State<FinishedPage> {
         Expanded(
           child: Padding(
             padding: const EdgeInsets.only(left: 4, bottom: 8),
-            child: _buildTextField(controllers.value, 'Quantity', inputType: TextInputType.number),
+            child: _buildTextField(
+              controllers.value,
+              'Quantity',
+              inputType: TextInputType.number,
+            ),
           ),
         ),
         if (ingredientControllers.length > 1)
@@ -239,27 +285,49 @@ class _FinishedPageState extends State<FinishedPage> {
     );
   }
 
-  Widget _buildSaveButton(DocumentSnapshot? item, TextEditingController nameController, TextEditingController quantityController, List<MapEntry<TextEditingController, TextEditingController>> ingredientControllers) {
+  Widget _buildSaveButton(
+    DocumentSnapshot? item,
+    TextEditingController nameController,
+    TextEditingController quantityController,
+    List<MapEntry<TextEditingController, TextEditingController>>
+    ingredientControllers,
+  ) {
     return ElevatedButton(
       onPressed: () async {
         String name = nameController.text.trim();
         String quantity = quantityController.text.trim();
 
-        if (name.isEmpty || quantity.isEmpty || ingredientControllers.any((pair) => pair.key.text.trim().isEmpty || pair.value.text.trim().isEmpty)) {
+        if (name.isEmpty ||
+            quantity.isEmpty ||
+            ingredientControllers.any(
+              (pair) =>
+                  pair.key.text.trim().isEmpty ||
+                  pair.value.text.trim().isEmpty,
+            )) {
           Navigator.pop(context);
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please fill in all fields')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please fill in all fields')),
+          );
           return;
         }
 
         try {
           int qty = int.tryParse(quantity) ?? 0;
-          List<Map<String, dynamic>> ingredients = ingredientControllers.map((pair) {
-            return {'name': pair.key.text.trim(), 'quantity': int.tryParse(pair.value.text.trim()) ?? 0};
-          }).toList();
+          List<Map<String, dynamic>> ingredients =
+              ingredientControllers.map((pair) {
+                return {
+                  'name': pair.key.text.trim(),
+                  'quantity': int.tryParse(pair.value.text.trim()) ?? 0,
+                };
+              }).toList();
 
-          List<String> missingOrLowStockMessages = await _checkStockAvailability(ingredients);
+          List<String> missingOrLowStockMessages =
+              await _checkStockAvailability(ingredients);
           if (missingOrLowStockMessages.isNotEmpty) {
-            await _showStockInsufficientDialog(missingOrLowStockMessages);
+            await _showStockInsufficientDialog(
+              missingOrLowStockMessages,
+              context,
+            );
             return;
           }
 
@@ -267,21 +335,26 @@ class _FinishedPageState extends State<FinishedPage> {
           await _saveFinishedGood(item, name, qty, ingredients);
         } catch (e) {
           Navigator.pop(context);
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
         }
       },
       style: ElevatedButton.styleFrom(
         minimumSize: const Size(double.infinity, 50),
         backgroundColor: const Color(0xFF4B8673),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
-      child: Text(item == null ? 'Add' : 'Save', style: const TextStyle(color: Colors.white)),
+      child: Text(
+        item == null ? 'Add' : 'Save',
+        style: const TextStyle(color: Colors.white),
+      ),
     );
   }
 
-  Future<List<String>> _checkStockAvailability(List<Map<String, dynamic>> ingredients) async {
+  Future<List<String>> _checkStockAvailability(
+    List<Map<String, dynamic>> ingredients,
+  ) async {
     List<String> messages = [];
     for (var ing in ingredients) {
       DocumentReference stockDoc = stockRef.doc(ing['name']);
@@ -292,48 +365,85 @@ class _FinishedPageState extends State<FinishedPage> {
         continue;
       }
 
-      int currentStockQty = int.tryParse(stockSnapshot.get('quantity').toString()) ?? 0;
+      int currentStockQty =
+          int.tryParse(stockSnapshot.get('quantity').toString()) ?? 0;
       int requiredQty = ing['quantity'];
       if (currentStockQty < requiredQty) {
-        messages.add('${ing['name']} is not enough (have: $currentStockQty, need: $requiredQty).');
+        messages.add(
+          '${ing['name']} is not enough (have: $currentStockQty, need: $requiredQty).',
+        );
       }
     }
     return messages;
   }
 
-  Future<void> _showStockInsufficientDialog(List<String> messages) async {
+  Future<void> _showStockInsufficientDialog(
+    List<String> messages,
+    BuildContext context,
+  ) async {
     await showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Insufficient Stock'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: messages.map((msg) => Text('- $msg')).toList(),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
+      builder:
+          (_) => AlertDialog(
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.warning_amber_rounded,
+                      color: Colors.red,
+                      size: 30,
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      'Alert',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: messages.map((msg) => Text('- $msg')).toList(),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: TextButton.styleFrom(foregroundColor: Colors.grey[700]),
+                child: const Text('OK'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
-  Future<void> _saveFinishedGood(DocumentSnapshot? item, String name, int qty, List<Map<String, dynamic>> ingredients) async {
+  Future<void> _saveFinishedGood(
+    DocumentSnapshot? item,
+    String name,
+    int qty,
+    List<Map<String, dynamic>> ingredients,
+  ) async {
     final docRef = finishedGoodsRef.doc(name);
     if (item != null) {
       await docRef.update({'quantity': qty, 'ingredients': ingredients});
     } else {
-      await docRef.set({'name': name, 'quantity': qty, 'ingredients': ingredients});
+      await docRef.set({
+        'name': name,
+        'quantity': qty,
+        'ingredients': ingredients,
+      });
     }
 
     // Deduct stocks
     for (var ing in ingredients) {
       DocumentReference stockDoc = stockRef.doc(ing['name']);
       DocumentSnapshot stockSnapshot = await stockDoc.get();
-      int currentStockQty = int.tryParse(stockSnapshot.get('quantity').toString()) ?? 0;
+      int currentStockQty =
+          int.tryParse(stockSnapshot.get('quantity').toString()) ?? 0;
       int newQty = currentStockQty - (ing['quantity'] as num).toInt();
       await stockDoc.update({'quantity': newQty});
 
@@ -354,7 +464,10 @@ class _FinishedPageState extends State<FinishedPage> {
         children: const [
           Icon(Iconsax.document, size: 60, color: Colors.grey),
           SizedBox(height: 12),
-          Text('No finished good yet', style: TextStyle(fontSize: 16, color: Colors.grey)),
+          Text(
+            'No finished good yet',
+            style: TextStyle(fontSize: 16, color: Colors.grey),
+          ),
         ],
       ),
     );
@@ -390,7 +503,8 @@ class _FinishedPageState extends State<FinishedPage> {
                   motion: const DrawerMotion(),
                   children: [
                     SlidableAction(
-                      onPressed: (context) => _showFinishedGoodModal(item: item),
+                      onPressed:
+                          (context) => _showFinishedGoodModal(item: item),
                       backgroundColor: Colors.blue,
                       foregroundColor: Colors.white,
                       icon: Icons.edit,
@@ -451,8 +565,13 @@ class _FinishedPageState extends State<FinishedPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                (item['ingredients'] as List).length == 1 ? 'Ingredient:' : 'Ingredients:',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                (item['ingredients'] as List).length == 1
+                    ? 'Ingredient:'
+                    : 'Ingredients:',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               ...List<Widget>.from(
                 (item['ingredients'] as List).map((ingredient) {
@@ -471,30 +590,35 @@ class _FinishedPageState extends State<FinishedPage> {
   Future<void> _confirmDelete(String docId) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: Colors.white,
-        title: const Text('Delete Finished Goods?'),
-        content: const Text('Are you sure to delete this finished goods?'),
-        actions: [
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF4B8673),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+      builder:
+          (_) => AlertDialog(
+            backgroundColor: Colors.white,
+            title: const Text('Delete Finished Goods?'),
+            content: const Text('Are you sure to delete this finished goods?'),
+            actions: [
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4B8673),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  'Delete',
+                  style: TextStyle(color: Colors.white),
+                ),
               ),
-            ),
-            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+            ],
           ),
-      TextButton(
-        onPressed: () => Navigator.pop(context, false),
-        child: const Text('Cancel'),
-      ),
-    ],
-  ),
-);
+    );
 
-if (confirm == true) {
-  await finishedGoodsRef.doc(docId).delete();
+    if (confirm == true) {
+      await finishedGoodsRef.doc(docId).delete();
+    }
+  }
 }
-  }}
