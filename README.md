@@ -28,3 +28,6 @@
 ### v2.5
 - Finished Good UI
 - Firestore functionality
+- Deduction for drinks
+- Categories and type for Stock
+- Refactor
