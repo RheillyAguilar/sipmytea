@@ -1,7 +1,6 @@
 // ignore_for_file: use_build_context_synchronously
 
 import 'package:flutter/material.dart';
-import 'package:blue_thermal_printer/blue_thermal_printer.dart';
 import 'package:sipmytea/widget/cart_item.dart';
 import '../menu_data.dart';
 import '../cart_data.dart';
@@ -24,43 +23,11 @@ class AddonSelection extends StatefulWidget {
 
 class AddonSelectionState extends State<AddonSelection> {
   late Set<String> _selectedAddOns;
-  final BlueThermalPrinter printer = BlueThermalPrinter.instance;
 
   @override
   void initState() {
     super.initState();
     _selectedAddOns = Set.from(widget.selectedAddOns);
-  }
-
-  Future<void> printReceipt({
-    required String productName,
-    required String size,
-    required List<String> addOns,
-    required String customerName,
-  }) async {
-    try {
-      printer.printCustom("Sip My Tea", 2, 2);
-      printer.printNewLine();
-      printer.printCustom("Product: $productName", 1, 0);
-      printer.printCustom("Size: $size", 1, 0);
-
-      if (addOns.isNotEmpty) {
-        printer.printCustom("Add-ons:", 1, 0);
-        for (String addOn in addOns) {
-          printer.printCustom("- $addOn", 1, 0);
-        }
-      } else {
-        printer.printCustom("Add-ons: None", 1, 0);
-      }
-
-      printer.printNewLine();
-      printer.printCustom("Thank you, $customerName!", 1, 0);
-      printer.printCustom("Please buy again", 1, 0);
-      printer.printNewLine();
-      printer.printNewLine();
-    } catch (e) {
-      debugPrint("Printing failed: $e");
-    }
   }
 
   void _showCheckDialog(BuildContext context) {
@@ -92,7 +59,7 @@ class AddonSelectionState extends State<AddonSelection> {
                     fillColor: const Color(0xFFF6F6F6),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none
+                      borderSide: BorderSide.none,
                     ),
                   ),
                 ),
@@ -101,7 +68,7 @@ class AddonSelectionState extends State<AddonSelection> {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     ElevatedButton(
-                        onPressed: () {
+                      onPressed: () {
                         if (nameController.text.trim().isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
@@ -117,19 +84,20 @@ class AddonSelectionState extends State<AddonSelection> {
                         }
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Color(0xFF4B8673),
+                        backgroundColor: const Color(0xFF4B8673),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)
-                        )
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
-                      child: Text('Confirm', style: TextStyle(color: Colors.white)),
+                      child: const Text('Confirm',
+                          style: TextStyle(color: Colors.white)),
                     ),
                     TextButton(
                       onPressed: () => Navigator.of(context).pop(),
                       style: TextButton.styleFrom(
-                        foregroundColor: Colors.grey[700]
+                        foregroundColor: Colors.grey[700],
                       ),
-                      child: Text("Cancel"),
+                      child: const Text("Cancel"),
                     ),
                   ],
                 ),
@@ -177,7 +145,8 @@ class AddonSelectionState extends State<AddonSelection> {
                   style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 16),
-                Text("Product: $productName", style: const TextStyle(fontSize: 18)),
+                Text("Product: $productName",
+                    style: const TextStyle(fontSize: 18)),
                 Text("Size: $size", style: const TextStyle(fontSize: 18)),
                 if (_selectedAddOns.isNotEmpty) ...[
                   const SizedBox(height: 10),
@@ -200,91 +169,28 @@ class AddonSelectionState extends State<AddonSelection> {
                 Align(
                   alignment: Alignment.centerRight,
                   child: FilledButton(
-                    onPressed: () async {
-                      List<BluetoothDevice> devices =
-                          await printer.getBondedDevices();
+                    onPressed: () {
+                      cartItems.add(
+                        CartItem(
+                          productName: productName,
+                          size: size!,
+                          addOns: _selectedAddOns.toList(),
+                          totalPrice: totalPrice,
+                          category: widget.selectedItem['category'] ?? '',
+                        ),
+                      );
 
-                      if (devices.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("No printers found.")),
-                        );
-                        return;
-                      }
+                      setState(() {
+                        _selectedAddOns.clear();
+                      });
 
-                      showDialog(
-                        context: context,
-                        builder: (BuildContext printerContext) {
-                          return AlertDialog(
-                            title: const Text("Select Printer"),
-                            content: SizedBox(
-                              height: 300,
-                              width: 300,
-                              child: ListView.builder(
-                                itemCount: devices.length,
-                                itemBuilder: (context, index) {
-                                  final device = devices[index];
-                                  return ListTile(
-                                    title: Text(device.name ?? "Unknown"),
-                                    subtitle: Text(device.address ?? ""),
-                                    onTap: () async {
-                                      Navigator.of(printerContext).pop();
+                      Navigator.of(context).pop();
+                      Navigator.of(this.context).pop();
 
-                                      bool? isConnected =
-                                          await printer.isConnected;
-
-                                      try {
-                                        if (isConnected != true) {
-                                          await printer.connect(device);
-                                        }
-
-                                        await printReceipt(
-                                          productName: productName,
-                                          size: size!,
-                                          addOns: _selectedAddOns.toList(),
-                                          customerName: name,
-                                        );
-
-                                        cartItems.add(
-                                          CartItem(
-                                            productName: productName,
-                                            size: size,
-                                            addOns: _selectedAddOns.toList(),
-                                            totalPrice: totalPrice,
-                                          ),
-                                        );
-
-                                        setState(() {
-                                          _selectedAddOns.clear();
-                                        });
-
-                                        Navigator.of(context).pop();
-                                        Navigator.of(this.context).pop();
-
-                                        ScaffoldMessenger.of(this.context)
-                                            .showSnackBar(
-                                          const SnackBar(
-                                            content: Text(
-                                              "Order added and printed!",
-                                            ),
-                                          ),
-                                        );
-                                      } catch (e) {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              "Failed to connect: $e",
-                                            ),
-                                          ),
-                                        );
-                                      }
-                                    },
-                                  );
-                                },
-                              ),
-                            ),
-                          );
-                        },
+                      ScaffoldMessenger.of(this.context).showSnackBar(
+                        const SnackBar(
+                          content: Text("Order added!"),
+                        ),
                       );
                     },
                     child: const Text("Confirm"),
@@ -298,7 +204,7 @@ class AddonSelectionState extends State<AddonSelection> {
     );
   }
 
-    @override
+  @override
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: Colors.white,
@@ -325,7 +231,10 @@ class AddonSelectionState extends State<AddonSelection> {
                   children: [
                     _buildAddOnTile("None", null),
                     ...menuItems["Add-ons"]!.map(
-                      (addOn) => _buildAddOnTile(addOn["name"], addOn["price"]),
+                      (addOn) => _buildAddOnTile(
+                        addOn["name"],
+                        addOn["price"],
+                      ),
                     ),
                   ],
                 ),
@@ -382,7 +291,7 @@ class AddonSelectionState extends State<AddonSelection> {
     return ElevatedButton(
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(
-        backgroundColor: Color(0xFF4B8673),
+        backgroundColor: const Color(0xFF4B8673),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
           side: BorderSide.none,

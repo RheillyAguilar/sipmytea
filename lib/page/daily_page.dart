@@ -15,144 +15,111 @@ class DailyPage extends StatefulWidget {
 
 class _DailyPageState extends State<DailyPage> {
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
-  late String today;
+  late String selectedDate;
 
-  Map<String, dynamic>? dailyData; // For regular user
-  Map<String, Map<String, dynamic>> allDailyData = {}; // For admin view
+  Map<String, dynamic>? dailyData;
+  Map<String, Map<String, dynamic>> allDailyData = {};
 
   @override
   void initState() {
     super.initState();
-    today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    selectedDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
     _loadData();
   }
 
   Future<void> _loadData() async {
-    if (widget.isAdmin) {
-      await loadAllUsersDailyData();
-    } else {
-      await loadUserDailyData();
-    }
+    widget.isAdmin ? await _loadAllUsersDailyData() : await _loadUserDailyData();
   }
 
-  Future<void> loadUserDailyData() async {
+  Future<void> _loadUserDailyData() async {
     final doc = await firestore
         .collection('daily_records')
-        .doc(today)
+        .doc(selectedDate)
         .collection('users')
         .doc(widget.username)
         .get();
 
-    if (doc.exists) {
-      setState(() {
-        dailyData = doc.data();
-      });
-    } else {
-      setState(() {
-        dailyData = null;
-      });
-    }
+    setState(() => dailyData = doc.exists ? doc.data() : null);
   }
 
-  Future<void> loadAllUsersDailyData() async {
+  Future<void> _loadAllUsersDailyData() async {
     final snapshot = await firestore
         .collection('daily_records')
-        .doc(today)
+        .doc(selectedDate)
         .collection('users')
         .get();
 
     setState(() {
-      allDailyData = {
-        for (var doc in snapshot.docs) doc.id: doc.data(),
-      };
+      allDailyData = {for (var doc in snapshot.docs) doc.id: doc.data()};
     });
   }
 
   Future<void> _pickDate() async {
-    DateTime initialDate = DateTime.tryParse(today) ?? DateTime.now();
+    final DateTime initial = DateTime.tryParse(selectedDate) ?? DateTime.now();
 
-    DateTime? picked = await showDatePicker(
+    final picked = await showDatePicker(
       context: context,
-      initialDate: initialDate,
+      initialDate: initial,
       firstDate: DateTime(2020),
       lastDate: DateTime(2100),
     );
 
     if (picked != null) {
-      setState(() {
-        today = DateFormat('yyyy-MM-dd').format(picked);
-      });
+      setState(() => selectedDate = DateFormat('yyyy-MM-dd').format(picked));
       await _loadData();
     }
   }
 
   Future<void> _addUserToMonthlySale(String username, Map<String, dynamic> data) async {
-    final confirm = await showDialog<bool>(
+    final bool? confirm = await showDialog<bool>(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: Colors.white,
-          title: const Text('Confirmation'),
-          content: const Text('Are you sure to add this to monthly sales?'),
-          actions: [
-            ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF4B8673),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide.none,
-                ),
-              ),
-              child: const Text('Confirm', style: TextStyle(color: Colors.white)),
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        title: const Text('Confirmation'),
+        content: const Text('Are you sure to add this to monthly sales?'),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF4B8673),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.grey[700],
-              ),
-              child: const Text('Cancel'),
-            ),
-          ],
-        );
-      },
+            child: const Text('Confirm', style: TextStyle(color: Colors.white)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            style: TextButton.styleFrom(foregroundColor: Colors.grey[700]),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
     );
 
     if (confirm != true) return;
 
-    // ✅ Use selected date instead of DateTime.now()
-    final DateTime selectedDate = DateTime.parse(today);
-    final String formattedDate = DateFormat('MMMM d yyyy').format(selectedDate);
-    final String monthKey = DateFormat('MMMM yyyy').format(selectedDate);
+    final DateTime parsedDate = DateTime.parse(selectedDate);
+    final String formattedDate = DateFormat('MMMM d yyyy').format(parsedDate);
+    final String monthKey = DateFormat('MMMM yyyy').format(parsedDate);
     final double netSales = (data['netSales'] ?? 0).toDouble();
 
-    final monthlyDocRef = firestore.collection('monthly_sales').doc(formattedDate);
-    final monthlyDocSnap = await monthlyDocRef.get();
+    final docRef = firestore.collection('monthly_sales').doc(formattedDate);
+    final docSnap = await docRef.get();
 
-    if (monthlyDocSnap.exists) {
-      final existingData = monthlyDocSnap.data();
-      final double existingAmount = (existingData?['amount'] ?? 0).toDouble();
-
-      await monthlyDocRef.update({
-        'amount': existingAmount + netSales,
-      });
+    if (docSnap.exists) {
+      final currentAmount = (docSnap.data()?['amount'] ?? 0).toDouble();
+      await docRef.update({'amount': currentAmount + netSales});
     } else {
-      await monthlyDocRef.set({
-        'amount': netSales,
-        'date': monthKey,
-      });
+      await docRef.set({'amount': netSales, 'date': monthKey});
     }
 
     await firestore
         .collection('daily_records')
-        .doc(today)
+        .doc(selectedDate)
         .collection('users')
         .doc(username)
         .delete();
 
-    setState(() {
-      allDailyData.remove(username);
-    });
+    setState(() => allDailyData.remove(username));
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('$username\'s sales moved to Monthly')),
@@ -165,48 +132,54 @@ class _DailyPageState extends State<DailyPage> {
       appBar: AppBar(
         title: const Text('Daily Summary'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.calendar_today),
-            onPressed: _pickDate,
-          ),
+          IconButton(icon: const Icon(Icons.calendar_today), onPressed: _pickDate),
         ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: widget.isAdmin
-            ? allDailyData.isEmpty
-                ? const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Iconsax.graph, size: 80, color: Colors.grey),
-                        SizedBox(height: 12),
-                        Text('No daily summaries yet.', style: TextStyle(color: Colors.grey, fontSize: 16)),
-                      ],
-                    ),
-                  )
-                : ListView(
-                    children: allDailyData.entries
-                        .map((entry) => _buildUserSummaryCard(entry.key, entry.value))
-                        .toList(),
-                  )
-            : dailyData == null
-                ? const Center(child: Text('No daily summary yet'))
-                : _buildUserSummaryCard(widget.username, dailyData!),
+        child: widget.isAdmin ? _buildAdminBody() : _buildUserBody(),
       ),
     );
   }
 
-  Widget _buildUserSummaryCard(String username, Map<String, dynamic> data) {
-    int totalSales = data['totalSales'] ?? 0;
-    int netSales = data['netSales'] ?? 0;
-    int silogCount = data['silogCount'] ?? 0;
-    int snackCount = data['snackCount'] ?? 0;
-    int regularCupCount = data['regularCupCount'] ?? 0;
-    int largeCupCount = data['largeCupCount'] ?? 0;
-    List expenses = data['expenses'] ?? [];
+  Widget _buildAdminBody() {
+    if (allDailyData.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Iconsax.graph, size: 80, color: Colors.grey),
+            SizedBox(height: 12),
+            Text('No daily summaries yet.', style: TextStyle(color: Colors.grey, fontSize: 16)),
+          ],
+        ),
+      );
+    }
 
-    double totalExpenses = expenses.fold(
+    return ListView(
+      children: allDailyData.entries
+          .map((entry) => _buildUserSummaryCard(entry.key, entry.value))
+          .toList(),
+    );
+  }
+
+  Widget _buildUserBody() {
+    if (dailyData == null) {
+      return const Center(child: Text('No daily summary yet'));
+    }
+    return _buildUserSummaryCard(widget.username, dailyData!);
+  }
+
+  Widget _buildUserSummaryCard(String username, Map<String, dynamic> data) {
+    final int totalSales = data['totalSales'] ?? 0;
+    final int netSales = data['netSales'] ?? 0;
+    final int silogCount = data['silogCount'] ?? 0;
+    final int snackCount = data['snackCount'] ?? 0;
+    final int regularCupCount = data['regularCupCount'] ?? 0;
+    final int largeCupCount = data['largeCupCount'] ?? 0;
+    final List expenses = data['expenses'] ?? [];
+
+    final double totalExpenses = expenses.fold(
       0.0,
       (sum, e) => sum + (e['amount'] ?? 0),
     );
@@ -220,20 +193,15 @@ class _DailyPageState extends State<DailyPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              username,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
-            ),
+            Text(username, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
             const SizedBox(height: 5),
             Text(
-              DateFormat('MMMM d, yyyy').format(DateTime.parse(today)),
+              DateFormat('MMMM d, yyyy').format(DateTime.parse(selectedDate)),
               style: const TextStyle(fontSize: 16, color: Colors.grey),
             ),
             const SizedBox(height: 10),
-            Text(
-              'Total Sales: ₱$totalSales',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
+            Text('Total Sales: ₱$totalSales',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
             Row(
               children: [
@@ -250,8 +218,10 @@ class _DailyPageState extends State<DailyPage> {
                 Expanded(child: _buildCategoryCard('Large Cups', largeCupCount, const Color(0xFF166e71))),
               ],
             ),
-            const SizedBox(height: 10),
-            if (expenses.isNotEmpty) _buildExpenseCard(expenses, totalExpenses),
+            if (expenses.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              _buildExpenseCard(expenses, totalExpenses),
+            ],
             const SizedBox(height: 10),
             Text(
               'Daily Sales: ₱${netSales.toStringAsFixed(2)}',
@@ -265,14 +235,10 @@ class _DailyPageState extends State<DailyPage> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF4B8673),
                     minimumSize: const Size(double.infinity, 45),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
-                  child: const Text(
-                    'Add to Monthly Sales',
-                    style: TextStyle(color: Colors.white, fontSize: 16),
-                  ),
+                  child: const Text('Add to Monthly Sales',
+                      style: TextStyle(color: Colors.white, fontSize: 16)),
                 ),
               ),
           ],
@@ -285,14 +251,9 @@ class _DailyPageState extends State<DailyPage> {
     return Card(
       color: color,
       child: ListTile(
-        title: Text(
-          title,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-        ),
-        subtitle: Text(
-          '$count sold',
-          style: const TextStyle(color: Colors.white),
-        ),
+        title: Text(title,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+        subtitle: Text('$count sold', style: const TextStyle(color: Colors.white)),
       ),
     );
   }
@@ -308,19 +269,15 @@ class _DailyPageState extends State<DailyPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text('Expenses', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            ...expenses.map(
-              (expense) => ListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                title: Text(expense['name'], style: const TextStyle(fontSize: 15)),
-                trailing: Text('₱${expense['amount']}', style: const TextStyle(fontSize: 15)),
-              ),
-            ),
+            ...expenses.map((expense) => ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(expense['name'], style: const TextStyle(fontSize: 15)),
+                  trailing: Text('₱${expense['amount']}', style: const TextStyle(fontSize: 15)),
+                )),
             const Divider(),
-            Text(
-              'Total Expenses: ₱$total',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
+            Text('Total Expenses: ₱$total',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ],
         ),
       ),

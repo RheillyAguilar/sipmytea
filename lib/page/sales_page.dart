@@ -19,9 +19,8 @@ class _SalesPageState extends State<SalesPage> {
 
   String get formattedDateDisplay =>
       DateFormat('MMMM d, yyyy').format(DateTime.parse(today));
-  String get formattedDate => DateFormat(
-    'MMMM d yyyy',
-  ).format(DateTime.parse(today)); // Firestore doc ID
+  String get formattedDate =>
+      DateFormat('MMMM d yyyy').format(DateTime.parse(today));
 
   @override
   void initState() {
@@ -31,23 +30,19 @@ class _SalesPageState extends State<SalesPage> {
 
   Future<void> fetchSalesData() async {
     try {
-      final salesSnapshot =
-          await FirebaseFirestore.instance
-              .collection('daily_sales')
-              .doc(formattedDate)
-              .collection(widget.username)
-              .get();
+      final snapshot = await FirebaseFirestore.instance
+          .collection('daily_sales')
+          .doc(formattedDate)
+          .collection(widget.username)
+          .get();
 
-      final data = salesSnapshot.docs.map((doc) => doc.data()).toList();
-      final ids = salesSnapshot.docs.map((doc) => doc.id).toList();
+      final data = snapshot.docs.map((doc) => doc.data()).toList();
+      final ids = snapshot.docs.map((doc) => doc.id).toList();
 
       setState(() {
         salesData = data;
         docIds = ids;
-        totalSales = data.fold(
-          0.0,
-          (sum, item) => sum + (item['amount']?.toDouble() ?? 0.0),
-        );
+        totalSales = data.fold(0.0, (sum, item) => sum + (item['amount']?.toDouble() ?? 0.0));
       });
     } catch (e) {
       debugPrint("Error fetching sales: $e");
@@ -55,10 +50,9 @@ class _SalesPageState extends State<SalesPage> {
   }
 
   Future<void> _pickDate() async {
-    DateTime initialDate = DateTime.tryParse(today) ?? DateTime.now();
     DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: initialDate,
+      initialDate: DateTime.tryParse(today) ?? DateTime.now(),
       firstDate: DateTime(2020),
       lastDate: DateTime(2100),
     );
@@ -69,6 +63,40 @@ class _SalesPageState extends State<SalesPage> {
       });
       await fetchSalesData();
     }
+  }
+
+  Future<bool?> _confirmDialog({
+    required String title,
+    required String content,
+    required VoidCallback onConfirm,
+  }) {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        content: Text(content),
+        actions: [
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop(true);
+              onConfirm();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Color(0xFF4b8673),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text('Confirm', style: TextStyle(color: Colors.white)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            style: TextButton.styleFrom(foregroundColor: Colors.grey[700]),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> deleteSale(int index) async {
@@ -83,22 +111,18 @@ class _SalesPageState extends State<SalesPage> {
       setState(() {
         salesData.removeAt(index);
         docIds.removeAt(index);
-        totalSales = salesData.fold(
-          0.0,
-          (sum, item) => sum + (item['amount']?.toDouble() ?? 0.0),
-        );
+        totalSales = salesData.fold(0.0, (sum, item) => sum + (item['amount']?.toDouble() ?? 0.0));
       });
     } catch (e) {
       debugPrint("Error deleting sale: $e");
     }
   }
 
-  Future<void> addToInventorySales(BuildContext context) async {
+  Future<void> addToInventorySales() async {
     final userSalesRef = FirebaseFirestore.instance
         .collection('daily_sales')
         .doc(formattedDate)
         .collection(widget.username);
-
     final snapshot = await userSalesRef.get();
 
     final inventoryDocRef = FirebaseFirestore.instance
@@ -109,64 +133,109 @@ class _SalesPageState extends State<SalesPage> {
 
     final existingDoc = await inventoryDocRef.get();
 
-    int silogCount = 0;
-    int snackCount = 0;
-    int regularCupCount = 0;
-    int largeCupCount = 0;
-    double totalSales = 0.0;
+    int silog = 0, snack = 0, regular = 0, large = 0;
+    double sum = 0.0;
 
     for (var doc in snapshot.docs) {
       final data = doc.data();
       final amount = data['amount']?.toDouble() ?? 0.0;
-      final productName = data['productName']?.toString().toLowerCase() ?? '';
-      final size = data['size']?.toString().toLowerCase() ?? '';
+      final name = (data['productName'] ?? '').toString().toLowerCase();
+      final size = (data['size'] ?? '').toString().toLowerCase();
 
-      totalSales += amount;
-
-      if (productName.contains('silog')) {
-        silogCount++;
-      } else if (productName.contains(
-        RegExp(r'beef|cheese|egg|stick|fries|combo'),
-      )) {
-        snackCount++;
-      }
-
-      if (size == 'regular') {
-        regularCupCount++;
-      } else if (size == 'large') {
-        largeCupCount++;
-      }
+      sum += amount;
+      if (name.contains('silog')) silog++;
+      else if (RegExp(r'beef|cheese|egg|stick|fries|combo').hasMatch(name)) snack++;
+      if (size == 'regular') regular++;
+      else if (size == 'large') large++;
     }
 
-    if (existingDoc.exists) {
-      final data = existingDoc.data()!;
-      await inventoryDocRef.update({
-        'totalSales': (data['totalSales'] ?? 0.0) + totalSales,
-        'silogCount': (data['silogCount'] ?? 0) + silogCount,
-        'snackCount': (data['snackCount'] ?? 0) + snackCount,
-        'regularCupCount': (data['regularCupCount'] ?? 0) + regularCupCount,
-        'largeCupCount': (data['largeCupCount'] ?? 0) + largeCupCount,
-        'timestamp': FieldValue.serverTimestamp(),
-        'date': today,
-      });
-    } else {
-      await inventoryDocRef.set({
-        'totalSales': totalSales,
-        'silogCount': silogCount,
-        'snackCount': snackCount,
-        'regularCupCount': regularCupCount,
-        'largeCupCount': largeCupCount,
-        'timestamp': FieldValue.serverTimestamp(),
-        'date': today,
-        'username': widget.username,
-      });
-    }
+final existingData = existingDoc.exists ? existingDoc.data() as Map<String, dynamic> : {};
 
+final data = {
+  'totalSales': (existingData['totalSales'] ?? 0.0) + sum,
+  'silogCount': (existingData['silogCount'] ?? 0) + silog,
+  'snackCount': (existingData['snackCount'] ?? 0) + snack,
+  'regularCupCount': (existingData['regularCupCount'] ?? 0) + regular,
+  'largeCupCount': (existingData['largeCupCount'] ?? 0) + large,
+  'timestamp': FieldValue.serverTimestamp(),
+  'date': today,
+};
+
+
+    await (existingDoc.exists ? inventoryDocRef.update(data) : inventoryDocRef.set({...data, 'username': widget.username}));
     for (var doc in snapshot.docs) {
       await doc.reference.delete();
     }
 
     await fetchSalesData();
+  }
+
+  Widget buildEmptyState() {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Iconsax.money, size: 80, color: Colors.grey),
+          SizedBox(height: 12),
+          Text('No sales yet.', style: TextStyle(color: Colors.grey, fontSize: 16)),
+        ],
+      ),
+    );
+  }
+
+  Widget buildSaleItem(Map<String, dynamic> item, int index) {
+    final productName = item['productName'] ?? 'Unknown';
+    final size = item['size'] ?? 'N/A';
+    final addOns = List<String>.from(item['addOns'] ?? []);
+    final amount = item['amount']?.toDouble() ?? 0.0;
+
+    return Dismissible(
+      key: Key(docIds[index]),
+      direction: DismissDirection.horizontal,
+      confirmDismiss: (direction) => _confirmDialog(
+        title: 'Confirm Deletion',
+        content: 'Are you sure you want to delete this sale?',
+        onConfirm: () => deleteSale(index),
+      ),
+      background: swipeBackground(isLeft: true),
+      secondaryBackground: swipeBackground(isLeft: false),
+      child: Card(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        elevation: 4,
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Name: $productName', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 4),
+              Text('Size: $size', style: const TextStyle(fontSize: 15)),
+              if (addOns.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                const Text("Add-ons:", style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                ...addOns.map((addOn) => Text("- $addOn", style: const TextStyle(fontSize: 15))),
+              ],
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Text("₱${amount.toStringAsFixed(2)}",
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget swipeBackground({required bool isLeft}) {
+    return Container(
+      color: Colors.red,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      alignment: isLeft ? Alignment.centerLeft : Alignment.centerRight,
+      child: const Icon(Icons.delete, color: Colors.white),
+    );
   }
 
   @override
@@ -176,262 +245,62 @@ class _SalesPageState extends State<SalesPage> {
       appBar: AppBar(
         title: const Text('Sales'),
         actions: [
-          IconButton(onPressed: _pickDate, icon: Icon(Icons.calendar_today)),
+          IconButton(onPressed: _pickDate, icon: const Icon(Icons.calendar_today)),
         ],
       ),
       body: Column(
         children: [
           Expanded(
-            child:
-                salesData.isEmpty
-                    ? const Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Iconsax.money, size: 80, color: Colors.grey),
-                          SizedBox(height: 12),
-                          Text(
-                            'No sales yet.',
-                            style: TextStyle(color: Colors.grey, fontSize: 16),
-                          ),
-                        ],
-                      ),
-                    )
-                    : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      itemCount: salesData.length,
-                      itemBuilder: (context, index) {
-                        final item = salesData[index];
-                        final productName = item['productName'] ?? 'Unknown';
-                        final size = item['size'] ?? 'N/A';
-                        final addOns = List<String>.from(item['addOns'] ?? []);
-                        final amount = item['amount']?.toDouble() ?? 0.0;
-
-                        return Dismissible(
-                          key: Key(docIds[index]),
-                          direction: DismissDirection.horizontal,
-                          confirmDismiss: (direction) async {
-                            return await showDialog(
-                              context: context,
-                              builder:
-                                  (context) => AlertDialog(
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      side: BorderSide.none,
-                                    ),
-                                    title: const Text("Confirm Deletion"),
-                                    content: const Text(
-                                      "Are you sure you want to delete this sale?",
-                                    ),
-                                    actions: [
-                                      ElevatedButton(
-                                        onPressed:
-                                            () =>
-                                                Navigator.of(context).pop(true),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.red,
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              12,
-                                            ),
-                                          ),
-                                        ),
-                                        child: const Text(
-                                          "Delete",
-                                          style: TextStyle(color: Colors.white),
-                                        ),
-                                      ),
-                                      TextButton(
-                                        onPressed:
-                                            () => Navigator.of(
-                                              context,
-                                            ).pop(false),
-                                        child: const Text("Cancel"),
-                                      ),
-                                    ],
-                                  ),
-                            );
-                          },
-                          onDismissed: (direction) {
-                            deleteSale(index);
-                          },
-                          background: Container(
-                            color: Colors.red,
-                            padding: const EdgeInsets.symmetric(horizontal: 20),
-                            alignment: Alignment.centerLeft,
-                            child: const Icon(
-                              Icons.delete,
-                              color: Colors.white,
-                            ),
-                          ),
-                          secondaryBackground: Container(
-                            color: Colors.red,
-                            padding: const EdgeInsets.symmetric(horizontal: 20),
-                            alignment: Alignment.centerRight,
-                            child: const Icon(
-                              Icons.delete,
-                              color: Colors.white,
-                            ),
-                          ),
-                          child: Card(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            elevation: 4,
-                            margin: const EdgeInsets.symmetric(vertical: 8),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Name: $productName',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Size: $size',
-                                    style: const TextStyle(fontSize: 15),
-                                  ),
-                                  if (addOns.isNotEmpty) ...[
-                                    const SizedBox(height: 8),
-                                    const Text(
-                                      "Add-ons:",
-                                      style: TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                    ...addOns.map(
-                                      (addOn) => Text(
-                                        "- $addOn",
-                                        style: const TextStyle(fontSize: 15),
-                                      ),
-                                    ),
-                                  ],
-                                  const SizedBox(height: 8),
-                                  Align(
-                                    alignment: Alignment.centerRight,
-                                    child: Text(
-                                      "₱${amount.toStringAsFixed(2)}",
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.green,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
+            child: salesData.isEmpty
+                ? buildEmptyState()
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    itemCount: salesData.length,
+                    itemBuilder: (context, index) => buildSaleItem(salesData[index], index),
+                  ),
           ),
-          if (salesData.isNotEmpty)
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 10,
-                    offset: Offset(0, -2),
-                  ),
-                ],
+          if (salesData.isNotEmpty) buildBottomSummary(),
+        ],
+      ),
+    );
+  }
+
+  Widget buildBottomSummary() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, -2))],
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Sales:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text('₱${totalSales.toStringAsFixed(2)}',
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => _confirmDialog(
+                title: 'Confirm Action',
+                content: 'Add sales to inventory and reset data?',
+                onConfirm: addToInventorySales,
               ),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Sales:',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        '₱${totalSales.toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        showDialog(
-                          context: context,
-                          builder:
-                              (context) => AlertDialog(
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                title: const Text(
-                                  "Confirm Action",
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                                content: const Text(
-                                  "Are you sure you want to add sales to inventory and reset data?",
-                                ),
-                                actions: [
-                                  ElevatedButton(
-                                    onPressed: () {
-                                      Navigator.of(context).pop();
-                                      addToInventorySales(context);
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Color(0xFF4B8673),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                    child: const Text(
-                                      'Confirm',
-                                      style: TextStyle(color: Colors.white),
-                                    ),
-                                  ),
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context),
-                                    child: const Text('Cancel'),
-                                  ),
-                                ],
-                              ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        backgroundColor: const Color(0xFF4B8673),
-                      ),
-                      child: const Text(
-                        'Add to Inventory',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF4B8673),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
+              child: const Text('Add to Inventory',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white)),
             ),
+          ),
         ],
       ),
     );
