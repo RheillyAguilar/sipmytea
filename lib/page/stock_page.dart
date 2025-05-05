@@ -20,11 +20,10 @@ class _StockPageState extends State<StockPage> {
 
   final List<String> _categories = [
     'All',
-    'Burger',
+    'Raw',
     'Milktea',
     'Syrup',
     'Powder',
-    'Others',
   ];
 
   @override
