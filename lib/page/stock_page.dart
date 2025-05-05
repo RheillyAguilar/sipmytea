@@ -4,7 +4,8 @@ import 'package:iconsax/iconsax.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class StockPage extends StatefulWidget {
-  const StockPage({super.key});
+  final bool isAdmin;
+  const StockPage({super.key, required this.isAdmin});
 
   @override
   State<StockPage> createState() => _StockPageState();
@@ -243,12 +244,7 @@ class _StockPageState extends State<StockPage> {
     final int qty = int.tryParse(quantity.toString()) ?? 0;
     final int lim = int.tryParse(limit.toString()) ?? 0;
     final bool isLow = qty <= lim;
-
-    return Slidable(
-      key: ValueKey(name),
-      startActionPane: _buildActionPane(stock.id, name, quantity, limit, type),
-      endActionPane: _buildActionPane(stock.id, name, quantity, limit, type),
-      child: Card(
+    final card = Card(
         color: isLow ? Colors.red.shade100 : const Color(0xFFF0F5F2),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         margin: const EdgeInsets.only(bottom: 16),
@@ -261,9 +257,17 @@ class _StockPageState extends State<StockPage> {
           title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
           subtitle: Text('Quantity: $quantity\nLimit: $limit\nType: $type'),
         ),
-      ),
-    );
+      );
+
+    return widget.isAdmin ?
+    Slidable(
+      key: ValueKey(name),
+      startActionPane: _buildActionPane(stock.id, name, quantity, limit, type),
+      endActionPane: _buildActionPane(stock.id, name, quantity, limit, type),
+      child: card
+    ) : card;
   }
+
 
   ActionPane _buildActionPane(
     String docId,
@@ -338,11 +342,12 @@ class _StockPageState extends State<StockPage> {
           Expanded(child: _buildStockList()),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: widget.isAdmin ?
+      FloatingActionButton(
         onPressed: () => _showAddStockSheet(),
         backgroundColor: const Color(0xFF4B8673),
         child: const Icon(Icons.add, color: Colors.white),
-      ),
+      ) : null,
     );
   }
 }

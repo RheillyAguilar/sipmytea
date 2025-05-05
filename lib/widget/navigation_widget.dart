@@ -53,7 +53,7 @@ class _NavigationWidgetState extends State<NavigationWidget> {
         Navigator.of(context).push(MaterialPageRoute(builder: (_) => SalesPage(username: widget.username)));
         break;
       case 3:
-        Navigator.of(context).push(MaterialPageRoute(builder: (_) => StockPage()));
+        Navigator.of(context).push(MaterialPageRoute(builder: (_) => StockPage(isAdmin: widget.isAdmin,)));
         break;
       case 4:
         Navigator.of(context).push(MaterialPageRoute(builder: (_) => MonthlyPage()));
@@ -93,7 +93,7 @@ class _NavigationWidgetState extends State<NavigationWidget> {
                 if (widget.isAdmin) buildItem(text: 'Daily Summary', icon: Iconsax.graph, onClicked: () => selectedItem(context, 6)),
                 if (widget.isAdmin) buildItem(text: 'Monthly Sales', icon: Iconsax.calendar, onClicked: () => selectedItem(context, 4)),
                 buildItem(text: 'Finished Goods', icon: Iconsax.document, onClicked: () => selectedItem(context, 1)),
-                if (widget.isAdmin) buildItem(text: 'Stock', icon: Iconsax.box4, onClicked: () => selectedItem(context, 3)),
+                buildItem(text: 'Stock', icon: Iconsax.box4, onClicked: () => selectedItem(context, 3)),
                 if (widget.isAdmin) buildItem(text: 'Create Account', icon: Iconsax.user_add, onClicked: () => selectedItem(context, 5)),
               ],
             ),
