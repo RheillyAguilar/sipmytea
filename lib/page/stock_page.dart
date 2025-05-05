@@ -19,13 +19,7 @@ class _StockPageState extends State<StockPage> {
   String _selectedType = '';
   String _selectedCategory = 'All';
 
-  final List<String> _categories = [
-    'All',
-    'Raw',
-    'Milktea',
-    'Syrup',
-    'Powder',
-  ];
+  final List<String> _categories = ['All', 'Raw', 'Milktea', 'Syrup', 'Powder'];
 
   @override
   void dispose() {
@@ -96,7 +90,10 @@ class _StockPageState extends State<StockPage> {
           style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 20),
-        TextField(controller: _nameController, decoration: _inputDecoration('Name')),
+        TextField(
+          controller: _nameController,
+          decoration: _inputDecoration('Name'),
+        ),
         const SizedBox(height: 16),
         TextField(
           controller: _numberController,
@@ -113,10 +110,13 @@ class _StockPageState extends State<StockPage> {
         DropdownButtonFormField<String>(
           value: _selectedType.isNotEmpty ? _selectedType : null,
           decoration: _inputDecoration('Type'),
-          items: _categories
-              .where((item) => item != 'All')
-              .map((type) => DropdownMenuItem(value: type, child: Text(type)))
-              .toList(),
+          items:
+              _categories
+                  .where((item) => item != 'All')
+                  .map(
+                    (type) => DropdownMenuItem(value: type, child: Text(type)),
+                  )
+                  .toList(),
           onChanged: (value) => setState(() => _selectedType = value ?? ''),
         ),
         const SizedBox(height: 24),
@@ -125,9 +125,14 @@ class _StockPageState extends State<StockPage> {
           style: ElevatedButton.styleFrom(
             minimumSize: const Size(double.infinity, 50),
             backgroundColor: const Color(0xFF4B8673),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
-          child: Text(docId != null ? 'Save' : 'Add', style: const TextStyle(color: Colors.white)),
+          child: Text(
+            docId != null ? 'Save' : 'Add',
+            style: const TextStyle(color: Colors.white),
+          ),
         ),
       ],
     );
@@ -141,28 +146,33 @@ class _StockPageState extends State<StockPage> {
     if ([name, number, limit, _selectedType].any((e) => e.isEmpty)) {
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please input all fields'), backgroundColor: Colors.black),
+        const SnackBar(
+          content: Text('Please input all fields'),
+          backgroundColor: Colors.black,
+        ),
       );
       return;
     }
 
     final docRef = FirebaseFirestore.instance.collection('stock').doc(name);
     final inputQuantity = int.tryParse(number) ?? 0;
+    final inputLimit = int.tryParse(limit) ?? 0;
     final doc = await docRef.get();
 
     if (docId != null) {
       await docRef.set({
         'name': name,
         'quantity': inputQuantity.toString(),
-        'limit': limit,
+        'limit': inputLimit.toString(),
         'type': _selectedType,
       });
     } else {
-      int currentQuantity = doc.exists ? int.tryParse(doc['quantity'].toString()) ?? 0 : 0;
+      int currentQuantity =
+          doc.exists ? int.tryParse(doc['quantity'].toString()) ?? 0 : 0;
       await docRef.set({
         'name': name,
         'quantity': (currentQuantity + inputQuantity).toString(),
-        'limit': limit,
+        'limit': inputLimit.toString(),
         'type': _selectedType,
       });
     }
@@ -172,28 +182,37 @@ class _StockPageState extends State<StockPage> {
   }
 
   Future<void> _confirmDelete(String docId) async {
-    final confirm = await showDialog<bool>(
+    final confirm =
+        await showDialog<bool>(
           context: context,
-          builder: (_) => AlertDialog(
-            backgroundColor: Colors.white,
-            title: const Text('Delete Stock?'),
-            content: const Text('Are you sure to delete this stock?'),
-            actions: [
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context, true),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Color(0xFF4B8673),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                child: const Text('Delete', style: TextStyle(color: Colors.white)),
+          builder:
+              (_) => AlertDialog(
+                backgroundColor: Colors.white,
+                title: const Text('Delete Stock?'),
+                content: const Text('Are you sure to delete this stock?'),
+                actions: [
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Color(0xFF4B8673),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'Delete',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.grey[700],
+                    ),
+                    child: const Text('Cancel'),
+                  ),
+                ],
               ),
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                style: TextButton.styleFrom(foregroundColor: Colors.grey[700]),
-                child: const Text('Cancel'),
-              ),
-            ],
-          ),
         ) ??
         false;
 
@@ -216,7 +235,8 @@ class _StockPageState extends State<StockPage> {
 
         var stocks = snapshot.data!.docs;
         if (_selectedCategory != 'All') {
-          stocks = stocks.where((doc) => doc['type'] == _selectedCategory).toList();
+          stocks =
+              stocks.where((doc) => doc['type'] == _selectedCategory).toList();
         }
 
         if (stocks.isEmpty) {
@@ -245,29 +265,42 @@ class _StockPageState extends State<StockPage> {
     final int lim = int.tryParse(limit.toString()) ?? 0;
     final bool isLow = qty <= lim;
     final card = Card(
-        color: isLow ? Colors.red.shade100 : const Color(0xFFF0F5F2),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        margin: const EdgeInsets.only(bottom: 16),
-        elevation: 3,
-        child: ListTile(
-          leading: Icon(
-            isLow ? Icons.warning_amber_rounded : Iconsax.box,
-            color: isLow ? Colors.red : const Color(0xFF4B8673),
-          ),
-          title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-          subtitle: Text('Quantity: $quantity\nLimit: $limit\nType: $type'),
+      color: isLow ? Colors.red.shade100 : const Color(0xFFF0F5F2),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      margin: const EdgeInsets.only(bottom: 16),
+      elevation: 3,
+      child: ListTile(
+        leading: Icon(
+          isLow ? Icons.warning_amber_rounded : Iconsax.box,
+          color: isLow ? Colors.red : const Color(0xFF4B8673),
+          size: 30,
         ),
-      );
+        title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: Text('Quantity: $quantity\nLimit: $limit\nType: $type'),
+      ),
+    );
 
-    return widget.isAdmin ?
-    Slidable(
-      key: ValueKey(name),
-      startActionPane: _buildActionPane(stock.id, name, quantity, limit, type),
-      endActionPane: _buildActionPane(stock.id, name, quantity, limit, type),
-      child: card
-    ) : card;
+    return widget.isAdmin
+        ? Slidable(
+          key: ValueKey(name),
+          startActionPane: _buildActionPane(
+            stock.id,
+            name,
+            quantity.toString(),
+            limit.toString(),
+            type,
+          ),
+          endActionPane: _buildActionPane(
+            stock.id,
+            name,
+            quantity.toString(),
+            limit.toString(),
+            type,
+          ),
+          child: card,
+        )
+        : card;
   }
-
 
   ActionPane _buildActionPane(
     String docId,
@@ -280,13 +313,14 @@ class _StockPageState extends State<StockPage> {
       motion: const DrawerMotion(),
       children: [
         SlidableAction(
-          onPressed: (_) => _showAddStockSheet(
-            docId: docId,
-            initialName: name,
-            initialQuantity: quantity,
-            initialLimit: limit,
-            initialType: type,
-          ),
+          onPressed:
+              (_) => _showAddStockSheet(
+                docId: docId,
+                initialName: name,
+                initialQuantity: quantity,
+                initialLimit: limit,
+                initialType: type,
+              ),
           backgroundColor: Colors.blueAccent,
           foregroundColor: Colors.white,
           icon: Icons.edit,
@@ -320,7 +354,9 @@ class _StockPageState extends State<StockPage> {
             onSelected: (_) => setState(() => _selectedCategory = category),
             selectedColor: const Color(0xFF4B8673),
             backgroundColor: Colors.grey.shade200,
-            labelStyle: TextStyle(color: isSelected ? Colors.white : Colors.black),
+            labelStyle: TextStyle(
+              color: isSelected ? Colors.white : Colors.black,
+            ),
           );
         },
       ),
@@ -331,23 +367,25 @@ class _StockPageState extends State<StockPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Stock', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Stock',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: Colors.white,
         elevation: 0,
         foregroundColor: Colors.black,
       ),
       body: Column(
-        children: [
-          _buildCategoryChips(),
-          Expanded(child: _buildStockList()),
-        ],
+        children: [_buildCategoryChips(), Expanded(child: _buildStockList())],
       ),
-      floatingActionButton: widget.isAdmin ?
-      FloatingActionButton(
-        onPressed: () => _showAddStockSheet(),
-        backgroundColor: const Color(0xFF4B8673),
-        child: const Icon(Icons.add, color: Colors.white),
-      ) : null,
+      floatingActionButton:
+          widget.isAdmin
+              ? FloatingActionButton(
+                onPressed: () => _showAddStockSheet(),
+                backgroundColor: const Color(0xFF4B8673),
+                child: const Icon(Icons.add, color: Colors.white),
+              )
+              : null,
     );
   }
 }
