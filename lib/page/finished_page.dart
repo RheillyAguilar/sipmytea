@@ -124,6 +124,12 @@ class _FinishedPageState extends State<FinishedPage> {
     );
   }
 
+    // Helper function to capitalize the first letter of a string
+  String capitalizeFirstLetter(String text) {
+    if (text.isEmpty) return text;
+    return text[0].toUpperCase() + text.substring(1);
+  }
+
   Future<void> _showFinishedGoodModal({DocumentSnapshot? item}) async {
     final TextEditingController nameController = TextEditingController(
       text: item?['name'],
@@ -131,6 +137,7 @@ class _FinishedPageState extends State<FinishedPage> {
     final TextEditingController quantityController = TextEditingController(
       text: item?['quantity'].toString(),
     );
+    final TextEditingController canDoController = TextEditingController(); // New controller for "Can Do"
     List<MapEntry<TextEditingController, TextEditingController>>
     ingredientControllers = _initializeIngredientControllers(item);
 
@@ -164,6 +171,12 @@ class _FinishedPageState extends State<FinishedPage> {
                       'Quantity',
                       inputType: TextInputType.number,
                     ),
+                    const SizedBox(height: 12),
+                    _buildTextField(
+                    canDoController,
+                    'Can Do', // New label here
+                    inputType: TextInputType.text,
+                  ),
                     const SizedBox(height: 20),
                     _buildIngredientsSection(setState, ingredientControllers),
                     const SizedBox(height: 20),
@@ -172,6 +185,7 @@ class _FinishedPageState extends State<FinishedPage> {
                       nameController,
                       quantityController,
                       ingredientControllers,
+                      canDoController
                     ),
                   ],
                 ),
@@ -291,14 +305,18 @@ class _FinishedPageState extends State<FinishedPage> {
     TextEditingController quantityController,
     List<MapEntry<TextEditingController, TextEditingController>>
     ingredientControllers,
+      TextEditingController canDoController,  // Accept new controller
+
   ) {
     return ElevatedButton(
       onPressed: () async {
-        String name = nameController.text.trim();
+        String name = capitalizeFirstLetter(nameController.text.trim());
         String quantity = quantityController.text.trim();
+      String canDo = canDoController.text.trim();  // Get the "Can Do" text
 
         if (name.isEmpty ||
             quantity.isEmpty ||
+            canDo.isEmpty ||  // Add check for "Can Do"
             ingredientControllers.any(
               (pair) =>
                   pair.key.text.trim().isEmpty ||
@@ -313,10 +331,11 @@ class _FinishedPageState extends State<FinishedPage> {
 
         try {
           int qty = int.tryParse(quantity.toString()) ?? 0;
+          int cando = int.tryParse(canDo.toString()) ?? 0;
           List<Map<String, dynamic>> ingredients =
               ingredientControllers.map((pair) {
                 return {
-                  'name': pair.key.text.trim(),
+                  'name': capitalizeFirstLetter(pair.key.text.trim()),
                   'quantity': int.tryParse(pair.value.text.trim()) ?? 0,
                 };
               }).toList();
@@ -331,7 +350,7 @@ class _FinishedPageState extends State<FinishedPage> {
             return;
           }
           Navigator.pop(context);
-          await _saveFinishedGood(item, name, qty, ingredients);
+          await _saveFinishedGood(item, name, qty, ingredients, cando);
         } catch (e) {
           Navigator.pop(context);
           ScaffoldMessenger.of(
@@ -424,15 +443,17 @@ class _FinishedPageState extends State<FinishedPage> {
     String name,
     int qty,
     List<Map<String, dynamic>> ingredients,
+    int canDo
   ) async {
     final docRef = finishedGoodsRef.doc(name);
     if (item != null) {
-      await docRef.update({'quantity': qty, 'ingredients': ingredients});
+      await docRef.update({'quantity': qty, 'ingredients': ingredients, 'canDo': canDo});
     } else {
       await docRef.set({
         'name': name,
         'quantity': qty,
         'ingredients': ingredients,
+        'canDo' : canDo
       });
     }
 
@@ -566,6 +587,7 @@ class _FinishedPageState extends State<FinishedPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('Quantity: ${item['quantity']}'),
+        Text('Can Do: ${item['canDo']}'),
         const SizedBox(height: 4),
         if (item['ingredients'] != null && item['ingredients'] is List)
           Column(

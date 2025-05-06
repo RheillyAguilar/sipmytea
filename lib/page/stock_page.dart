@@ -21,6 +21,12 @@ class _StockPageState extends State<StockPage> {
 
   final List<String> _categories = ['Raw', 'Milktea', 'Syrup', 'Powder', 'Other'];
 
+     // Helper function to capitalize the first letter of a string
+  String capitalizeFirstLetter(String text) {
+    if (text.isEmpty) return text;
+    return text[0].toUpperCase() + text.substring(1);
+  }
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -137,7 +143,7 @@ class _StockPageState extends State<StockPage> {
   }
 
   Future<void> _submitStockForm(String? docId) async {
-    final name = _nameController.text.trim();
+    final name = capitalizeFirstLetter(_nameController.text.trim());
     final number = _numberController.text.trim();
     final limit = _limitController.text.trim();
 
