@@ -132,8 +132,29 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: Colors.white,
-        title: const Text('Remove account'),
-        content: Text('Do you want to remove ${account['username']}?'),
+        content: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.warning_amber_rounded,
+                      color: Colors.red,
+                      size: 40,
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      'Alert',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 25),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 20),
+                Text('Are sure to remove this account?', style: TextStyle(fontSize: 15),)
+              ],
+            ),
         actions: [
           ElevatedButton(
             onPressed: () {

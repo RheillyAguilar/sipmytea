@@ -75,8 +75,29 @@ class _DailyPageState extends State<DailyPage> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: Colors.white,
-        title: const Text('Confirmation'),
-        content: const Text('Are you sure to add this to monthly sales?'),
+        content: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.warning_amber_rounded,
+                      color: Colors.red,
+                      size: 40,
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      'Alert',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 25),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 20),
+                Text('Are sure add this to the Monthly Sale?', style: TextStyle(fontSize: 15),)
+              ],
+            ),
         actions: [
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
