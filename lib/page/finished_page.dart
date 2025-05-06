@@ -312,7 +312,7 @@ class _FinishedPageState extends State<FinishedPage> {
         }
 
         try {
-          int qty = int.tryParse(quantity) ?? 0;
+          int qty = int.tryParse(quantity.toString()) ?? 0;
           List<Map<String, dynamic>> ingredients =
               ingredientControllers.map((pair) {
                 return {
@@ -330,7 +330,6 @@ class _FinishedPageState extends State<FinishedPage> {
             );
             return;
           }
-
           Navigator.pop(context);
           await _saveFinishedGood(item, name, qty, ingredients);
         } catch (e) {
@@ -365,8 +364,7 @@ class _FinishedPageState extends State<FinishedPage> {
         continue;
       }
 
-      int currentStockQty =
-          int.tryParse(stockSnapshot.get('quantity').toString()) ?? 0;
+      int currentStockQty = int.tryParse(stockSnapshot.get('quantity').toString()) ?? 0;
       int requiredQty = ing['quantity'];
       if (currentStockQty < requiredQty) {
         messages.add(
@@ -438,20 +436,29 @@ class _FinishedPageState extends State<FinishedPage> {
       });
     }
 
-    // Deduct stocks
+    // Deduct stock for each ingredient based on the fixed total amount
     for (var ing in ingredients) {
-      DocumentReference stockDoc = stockRef.doc(ing['name'].toLowerCase());
-      DocumentSnapshot stockSnapshot = await stockDoc.get();
-      int currentStockQty =
-          int.tryParse(stockSnapshot.get('quantity').toString()) ?? 0;
-      int newQty = currentStockQty - (ing['quantity'] as num).toInt();
-      await stockDoc.update({'quantity': newQty});
+      final ingName = ing['name'].toLowerCase();
+      final totalRequiredQty = (ing['quantity'] as num).toInt();
 
-      // Show warning if below limit
-      String? limitStr = stockSnapshot.get('limit');
-      int limit = int.tryParse(limitStr.toString()) ?? 0;
-      if (newQty <= limit) {
-        await _showLowStockWarning(ing['name'], newQty);
+      DocumentReference stockDoc = stockRef.doc(ingName);
+      DocumentSnapshot stockSnapshot = await stockDoc.get();
+
+      if (stockSnapshot.exists) {
+        int currentQty = int.tryParse(stockSnapshot.get('quantity').toString()) ?? 0;
+        int newQty = currentQty - totalRequiredQty;
+
+        await stockDoc.update({'quantity': newQty});
+
+        // Trigger low stock warning if needed
+        var limitVal = stockSnapshot.get('limit');
+        int limit = (limitVal is int)
+                ? limitVal
+                : int.tryParse(limitVal.toString()) ?? 0;
+
+        if (newQty <= limit) {
+          await _showLowStockWarning(ing['name'], newQty);
+        }
       }
     }
   }
