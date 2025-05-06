@@ -376,8 +376,8 @@ Map<String, int> _getClassicDeduction(
      'okinawa' : 'Okinawa',
     'taro' : 'Taro',
     'honeydew' : 'Honeydew',
-    'chocolate' : 'chocolate',
-    'coffee' : 'coffee',
+    'chocolate' : 'Chocolate',
+    'coffee' : 'Coffee',
   };
 
   if (category == 'classic milktea') {

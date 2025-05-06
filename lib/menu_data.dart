@@ -10,7 +10,7 @@ final Map<String, List<Map<String, String>>> menuItems = {
     {"name": "Brown Sugar", "Regular": "₱39", "Large": "₱49"},
     {"name": "Honeydew", "Regular": "₱39", "Large": "₱49"},
     {"name": "Chocolate", "Regular": "₱39", "Large": "₱49"},
-    {"name": "Coffe", "Regular": "₱39", "Large": "₱49"},
+    {"name": "Coffee", "Regular": "₱39", "Large": "₱49"},
     {"name": "Plain", "Regular": "₱39", "Large": "₱49"},
 
   ],
