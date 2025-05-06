@@ -17,9 +17,9 @@ class _StockPageState extends State<StockPage> {
   final _limitController = TextEditingController();
 
   String _selectedType = '';
-  String _selectedCategory = 'All';
+  String _selectedCategory = 'Raw';
 
-  final List<String> _categories = ['All', 'Raw', 'Milktea', 'Syrup', 'Powder'];
+  final List<String> _categories = ['Raw', 'Milktea', 'Syrup', 'Powder', 'Other'];
 
   @override
   void dispose() {
@@ -107,18 +107,16 @@ class _StockPageState extends State<StockPage> {
           decoration: _inputDecoration('Limit'),
         ),
         const SizedBox(height: 16),
-        DropdownButtonFormField<String>(
-          value: _selectedType.isNotEmpty ? _selectedType : null,
-          decoration: _inputDecoration('Type'),
-          items:
-              _categories
-                  .where((item) => item != 'All')
-                  .map(
-                    (type) => DropdownMenuItem(value: type, child: Text(type)),
-                  )
-                  .toList(),
-          onChanged: (value) => setState(() => _selectedType = value ?? ''),
-        ),
+       DropdownButtonFormField<String>(
+        value: _selectedType.isNotEmpty ? _selectedType : null,
+        decoration: _inputDecoration('Type'),
+        items: _categories
+            .map(
+              (type) => DropdownMenuItem(
+                value: type,
+                child: Text(type),),
+                ).toList(),
+        onChanged: (value) => setState(() => _selectedType = value ?? ''),),
         const SizedBox(height: 24),
         ElevatedButton(
           onPressed: () => _submitStockForm(docId),
@@ -154,7 +152,7 @@ class _StockPageState extends State<StockPage> {
       return;
     }
 
-    final docRef = FirebaseFirestore.instance.collection('stock').doc(name);
+    final docRef = FirebaseFirestore.instance.collection('stock').doc(name.toLowerCase());
     final inputQuantity = int.tryParse(number) ?? 0;
     final inputLimit = int.tryParse(limit) ?? 0;
     final doc = await docRef.get();
@@ -162,17 +160,17 @@ class _StockPageState extends State<StockPage> {
     if (docId != null) {
       await docRef.set({
         'name': name,
-        'quantity': inputQuantity.toString(),
-        'limit': inputLimit.toString(),
+        'quantity': inputQuantity,
+        'limit': inputLimit,
         'type': _selectedType,
       });
     } else {
       int currentQuantity =
-          doc.exists ? int.tryParse(doc['quantity'].toString()) ?? 0 : 0;
+          doc.exists ? int.tryParse(doc['quantity']) ?? 0 : 0;
       await docRef.set({
         'name': name,
-        'quantity': (currentQuantity + inputQuantity).toString(),
-        'limit': inputLimit.toString(),
+        'quantity': (currentQuantity + inputQuantity),
+        'limit': inputLimit,
         'type': _selectedType,
       });
     }

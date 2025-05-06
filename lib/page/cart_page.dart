@@ -192,7 +192,7 @@ class _CartPageState extends State<CartPage> {
     int currentQty = int.tryParse(doc['quantity'].toString()) ?? 0;
     int updatedQty = (currentQty - usedQty).clamp(0, currentQty);
 
-    await doc.reference.update({'quantity': updatedQty.toString()});
+    await doc.reference.update({'quantity': updatedQty});
     if (updatedQty <= limit) {
       await _handleWarning(docName, updatedQty);
     }
@@ -252,17 +252,17 @@ class _CartPageState extends State<CartPage> {
     final size = item.size.toLowerCase();
 
     final deductions = <String, int>{
-      if (['regular beef', 'cheese beef'].any(name.contains)) 'Patties': 2,
-      if (name.contains('combo')) 'Patties': 1,
-      if (name.contains('cheesestick')) 'Cheese Stick': 10,
-      if (name.contains('combo')) 'Cheese Stick': 7,
-      if (name.contains('fries')) 'Fries': 170,
-      if (name.contains('combo')) 'Fries': 120,
-      if (name.contains('egg')) 'Egg': 2,
-      if (name.contains('silog')) 'Egg': 1,
+      if (['regular beef', 'cheese beef'].any(name.contains)) 'patties': 2,
+      if (name.contains('combo')) 'patties': 1,
+      if (name.contains('cheesestick')) 'cheese stick': 10,
+      if (name.contains('combo')) 'cheese stick': 7,
+      if (name.contains('fries')) 'fries': 170,
+      if (name.contains('combo')) 'fries': 120,
+      if (name.contains('egg')) 'egg': 2,
+      if (name.contains('silog')) 'egg': 1,
       if (['regular beef', 'cheese beef', 'egg sandwich'].any(name.contains))
-        'Buns': 2,
-      if (name.contains('combo')) 'Bans': 1,
+        'buns': 2,
+      if (name.contains('combo')) 'buns': 1,
       ..._getSmoothieDeductions(category, name, size),
       ..._getFreshTeaDeduction(category, name, size),
       ..._getCreampuffDeduction(category, name, size),
@@ -281,17 +281,17 @@ class _CartPageState extends State<CartPage> {
       }
     }
     // Handle cups
-    final cupDocName = {'regular': 'Regular Cups', 'large': 'Large Cups'}[size];
+    final cupDocName = {'regular': 'regular cups', 'large': 'large cups'}[size];
     if (cupDocName != null) {
       final doc = await _firestore.collection('stock').doc(cupDocName).get();
       final limit = int.tryParse(doc['limit'].toString()) ?? 0;
       await _deductStockAndAlert(docName: cupDocName, usedQty: 1, limit: limit);
     }
     // Handle straw
-    final strawDoc = await _firestore.collection('stock').doc('Straw').get();
+    final strawDoc = await _firestore.collection('stock').doc('straw').get();
     if (strawDoc.exists) {
       final limit = int.tryParse(strawDoc['limit'].toString()) ?? 0;
-      await _deductStockAndAlert(docName: 'Straw', usedQty: 1, limit: limit);
+      await _deductStockAndAlert(docName: 'straw', usedQty: 1, limit: limit);
     }
   }
 
@@ -301,12 +301,12 @@ class _CartPageState extends State<CartPage> {
     String size,
   ) {
     final smoothieMap = {
-      'chocolate': 'Chocolate',
-      'strawberry': 'Strawberry',
-      'blueberry': 'Blueberry',
-      'mixberries': 'Mixberries',
-      'coffee': 'Coffee',
-      'mocha': 'Mocha',
+      'chocolate': 'chocolate',
+      'strawberry': 'strawberry',
+      'blueberry': 'blueberry',
+      'mixberries': 'mixberries',
+      'coffee': 'coffee',
+      'mocha': 'mocha',
     };
 
     return {
@@ -322,11 +322,11 @@ class _CartPageState extends State<CartPage> {
     String size,
   ) {
     final freshTeaMap = {
-      'lychee': 'Lychee',
-      'wintermelon': 'Wintermelon',
-      'blueberry': 'Blueberry',
-      'strawberry': 'Strawberry',
-      'kiwi yakult': ' Kiwi Yakult',
+      'lychee': 'lychee',
+      'wintermelon': 'wintermelon',
+      'blueberry': 'blueberry',
+      'strawberry': 'strawberry',
+      'kiwi yakult': ' kiwi yakult',
     };
 
     return {
@@ -342,12 +342,12 @@ class _CartPageState extends State<CartPage> {
     String size,
   ) {
     final creampuffOverloadMap = {
-      'honeydew': 'Honeydew',
-      'taro': 'Taro',
-      'match': 'Matcha',
-      'dark chocolate': 'Dark Chocolate',
-      'cookies and cream': 'Cookies and Cream',
-      'chocomalt': 'Chocomalt',
+      'honeydew': 'honeydew',
+      'taro': 'taro',
+      'match': 'matcha',
+      'dark chocolate': 'dark chocolate',
+      'cookies and cream': 'cookies and cream',
+      'chocomalt': 'chocomalt',
     };
 
     return {
@@ -363,21 +363,21 @@ Map<String, int> _getClassicDeduction(
   String size
 ) {
   final highDeduct = {
-    'wintermelon': 'Wintermelon',
-    'blueberry' : 'Blueberry',
-    'strawberry' : 'Strawberry',
-    'lychee' : 'Lychee',
-    'yogurt' : 'Yogurt',
-    'brown sugar' : 'Brown Sugar',
-    'plain' : 'Plain'
+    'wintermelon': 'wintermelon',
+    'blueberry' : 'blueberry',
+    'strawberry' : 'strawberry',
+    'lychee' : 'lychee',
+    'yogurt' : 'yogurt',
+    'brown sugar' : 'brown sugar',
+    'plain' : 'plain'
    };
 
   final lowDeduct = {
-     'okinawa' : 'Okinawa',
-    'taro' : 'Taro',
-    'honeydew' : 'Honeydew',
-    'chocolate' : 'Chocolate',
-    'coffee' : 'Coffee',
+     'okinawa' : 'okinawa',
+    'taro' : 'taro',
+    'honeydew' : 'honeydew',
+    'chocolate' : 'chocolate',
+    'coffee' : 'coffee',
   };
 
   if (category == 'classic milktea') {
@@ -484,11 +484,20 @@ Map<String, int> _getClassicDeduction(
           children: [
             Text(
               'Category: ${item.category}',
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-            ),
-            Text(
-              'Name: ${item.productName}',
               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            ),
+             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Name: ${item.productName}',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+                Text(
+                  "₱${item.totalPrice.toStringAsFixed(2)}",
+                  style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 14),
+                )
+              ],
             ),
             const SizedBox(height: 4),
             Text('Size: ${item.size}'),
@@ -500,17 +509,6 @@ Map<String, int> _getClassicDeduction(
               ),
               ...item.addOns.map((a) => Text('- $a')),
             ],
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerRight,
-              child: Text(
-                "₱${item.totalPrice.toStringAsFixed(2)}",
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.green,
-                ),
-              ),
-            ),
           ],
         ),
       ),

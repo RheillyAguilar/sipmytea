@@ -357,7 +357,7 @@ class _FinishedPageState extends State<FinishedPage> {
   ) async {
     List<String> messages = [];
     for (var ing in ingredients) {
-      DocumentReference stockDoc = stockRef.doc(ing['name']);
+      DocumentReference stockDoc = stockRef.doc(ing['name'].toLowerCase());
       DocumentSnapshot stockSnapshot = await stockDoc.get();
 
       if (!stockSnapshot.exists) {
@@ -440,7 +440,7 @@ class _FinishedPageState extends State<FinishedPage> {
 
     // Deduct stocks
     for (var ing in ingredients) {
-      DocumentReference stockDoc = stockRef.doc(ing['name']);
+      DocumentReference stockDoc = stockRef.doc(ing['name'].toLowerCase());
       DocumentSnapshot stockSnapshot = await stockDoc.get();
       int currentStockQty =
           int.tryParse(stockSnapshot.get('quantity').toString()) ?? 0;
