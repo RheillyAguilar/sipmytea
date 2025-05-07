@@ -243,10 +243,61 @@ class _CartPageState extends State<CartPage> {
       });
 
       await _handleInventory(item);
+      await _deductCreampuffCanDo(item, item.addOns);
+      await _deductSaltedCanDo(item.addOns);
     }
           await _deductPearlCanDo();
 
   }
+
+Future<void> _deductSaltedCanDo(List<String> addOns) async {
+  final docRef = _firestore.collection('finished_goods').doc('Salted Cheese');
+  final saltedDoc = await docRef.get();
+  if(!saltedDoc.exists) return;
+
+  final rawCando = saltedDoc['canDo'];
+  final currentCando = int.tryParse(rawCando.toString());
+  if(currentCando == null) return;
+
+  final updatedCando = (currentCando - 1).clamp(0, currentCando);
+
+  await docRef.update({'canDo': updatedCando});
+
+  if (updatedCando == 0) docRef.delete();
+  if (updatedCando <= 5) _handleWarning('Salted Cheese (canDo)', updatedCando);
+
+}
+
+
+Future<void> _deductCreampuffCanDo(CartItem item, List<String> addOns) async {
+  final category = item.category.toLowerCase();
+  final hasCreampuff = addOns.map((e) => e.toLowerCase()).toList();
+
+  int deduction = 0;
+  if(category == 'creampuff overload' && hasCreampuff.contains('creampuff')) {
+    deduction = 2;
+  } else if (category == 'creampuff overload' || hasCreampuff.contains('creampuff')) {
+    deduction = 1;
+  } else {
+    return;
+  }
+  
+  final docRef = _firestore.collection('finished_goods').doc('Creampuff');
+  final creampuffDoc = await docRef.get();
+  if(!creampuffDoc.exists) return;
+
+  final rawCando = creampuffDoc['canDo'];
+  final currentCando = int.tryParse(rawCando.toString());
+  if(currentCando == null) return;
+
+  final updatedCando = (currentCando - deduction).clamp(0, currentCando);
+
+  await docRef.update({'canDo': updatedCando});
+
+  if (updatedCando == 0) docRef.delete();
+  if (updatedCando <= 5) _handleWarning('Creampuff (canDo)', updatedCando);
+
+}
 
   
 Future<void> _deductPearlCanDo() async {
