@@ -269,7 +269,7 @@ class _StockPageState extends State<StockPage> {
     final int lim = int.tryParse(limit.toString()) ?? 0;
     final bool isLow = qty <= lim;
     final card = Card(
-      color: isLow ? Colors.red.shade100 : const Color(0xFFF0F5F2),
+      color: isLow ? Colors.red.shade100 : Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       margin: const EdgeInsets.only(bottom: 16),
       elevation: 3,
@@ -280,7 +280,7 @@ class _StockPageState extends State<StockPage> {
           size: 30,
         ),
         title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text('Quantity: $quantity\nLimit: $limit\nType: $type'),
+        subtitle: Text('Quantity: $quantity\nLimit: $limit'),
       ),
     );
 
