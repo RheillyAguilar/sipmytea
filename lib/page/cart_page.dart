@@ -244,7 +244,57 @@ class _CartPageState extends State<CartPage> {
 
       await _handleInventory(item);
     }
+          await _deductPearlCanDo();
+
   }
+
+  
+Future<void> _deductPearlCanDo() async {
+  final docRef = _firestore.collection('finished_goods').doc('Pearl');
+  final nataRef = _firestore.collection('stock').doc('nata');
+
+  // Get the current document for Pearl
+  final doc = await docRef.get();
+
+  // If 'Pearl' does NOT exist, deduct from 'nata'
+  if (!doc.exists) {
+    final nataDoc = await nataRef.get();
+    if (nataDoc.exists) {
+      final nataData = nataDoc.data();
+      final currentQuantity = nataData?['quantity'] ?? 0;
+
+      if (currentQuantity > 0) {
+        final updatedQuantity = currentQuantity - 1;
+        await nataRef.update({'quantity': updatedQuantity});
+
+        // Optional: show a warning if quantity reaches the limit
+        if (updatedQuantity <= nataData?['limit']) {
+          await _handleWarning('Nata stock', updatedQuantity);
+        }
+      }
+    }
+    return; // Exit early since Pearl doesn't exist
+  }
+
+  // If Pearl exists, continue deduction from 'canDo'
+  final data = doc.data();
+  final rawCanDo = data?['canDo'];
+  if (rawCanDo == null) return;
+
+  final currentCanDo = int.tryParse(rawCanDo.toString());
+  if (currentCanDo == null) return;
+
+  final deduction = cartItems.length;
+  final updatedCanDo = (currentCanDo - deduction).clamp(0, currentCanDo);
+  await docRef.update({'canDo': updatedCanDo});
+
+  // if the cando reach 0 will automatic delete
+  if (updatedCanDo == 0) await docRef.delete();
+  // if the cando reach 5 will pop a warning 
+  if (updatedCanDo <= 5) await _handleWarning('Pearl (canDo)', updatedCanDo);
+
+}
+
 
   Future<void> _handleInventory(CartItem item) async {
     final name = item.productName.toLowerCase();
@@ -280,6 +330,7 @@ class _CartPageState extends State<CartPage> {
         );
       }
     }
+
     // Handle cups
     final cupDocName = {'regular': 'regular cups', 'large': 'large cups'}[size];
     if (cupDocName != null) {
@@ -308,7 +359,7 @@ class _CartPageState extends State<CartPage> {
       'coffee': 'coffee',
       'mocha': 'mocha',
     };
-
+    // handle deduction each categories
     return {
       for (final entry in smoothieMap.entries)
         if (category == 'smoothies' && name.contains(entry.key))
@@ -328,7 +379,7 @@ class _CartPageState extends State<CartPage> {
       'strawberry': 'strawberry',
       'kiwi yakult': ' kiwi yakult',
     };
-
+    // handle deduction each categories
     return {
       for (final entry in freshTeaMap.entries)
         if (category == 'fresh tea' && name.contains(entry.key))
@@ -349,7 +400,7 @@ class _CartPageState extends State<CartPage> {
       'cookies and cream': 'cookies and cream',
       'chocomalt': 'chocomalt',
     };
-
+    // handle deduction each categories
     return {
       for (final entry in creampuffOverloadMap.entries)
         if (category == 'creampuff overload' && name.contains(entry.key))
@@ -381,11 +432,13 @@ Map<String, int> _getClassicDeduction(
   };
 
   if (category == 'classic milktea') {
+    // handle deduction for powder
     for (final entry in highDeduct.entries) {
       if (name.toLowerCase().contains(entry.key)) {
         return {entry.value: size == 'regular' ? 30 : 40};
       }
     }
+    // handle deduction for syrup
     for (final entry in lowDeduct.entries) {
       if (name.toLowerCase().contains(entry.key)) {
         return {entry.value: size == 'regular' ? 15 : 20};
