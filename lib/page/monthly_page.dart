@@ -3,11 +3,11 @@
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
+import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../cart_data.dart';
 
 class MonthlyPage extends StatefulWidget {
   const MonthlyPage({super.key});
@@ -18,6 +18,8 @@ class MonthlyPage extends StatefulWidget {
 
 class _MonthlyPageState extends State<MonthlyPage> {
   List<Map<String, dynamic>> dailySalesList = [];
+  double monthlySales = 0.0; // ✅ Declare this variable
+  bool isLoading = true;
   DateTime selectedMonth = DateTime.now();
 
   @override
@@ -40,32 +42,48 @@ class _MonthlyPageState extends State<MonthlyPage> {
 
     if (picked != null) {
       setState(() => selectedMonth = DateTime(picked.year, picked.month));
-      _loadMonthlySales();
+      await _loadMonthlySales(); // ✅ Await to ensure complete load
     }
   }
 
   Future<void> _loadMonthlySales() async {
     final monthStr = DateFormat('MMMM yyyy').format(selectedMonth);
-
-    final snapshot = await FirebaseFirestore.instance
-        .collection('monthly_sales')
-        .where('date', isEqualTo: monthStr)
-        .get();
-
-    double totalAmount = 0.0;
-    final List<Map<String, dynamic>> sales = [];
-
-    for (var doc in snapshot.docs) {
-      final data = doc.data();
-      final amount = (data['amount'] as num?)?.toDouble() ?? 0.0;
-      totalAmount += amount;
-      sales.add({'date': doc.id, 'amount': amount});
-    }
-
     setState(() {
-      monthlySales = totalAmount;
-      dailySalesList = sales;
+      isLoading = true;
     });
+
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('monthly_sales')
+          .where('date', isEqualTo: monthStr)
+          .get();
+
+      double totalAmount = 0.0;
+      final List<Map<String, dynamic>> sales = [];
+
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        final amount = (data['amount'] as num?)?.toDouble() ?? 0.0;
+        totalAmount += amount;
+        sales.add({'date': doc.id, 'amount': amount});
+      }
+
+      if (!mounted) return; // ✅ Prevent using context if widget was disposed
+      setState(() {
+        monthlySales = totalAmount;
+        dailySalesList = sales;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading data: $e')),
+      );
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        isLoading = false;
+      });
+    }
   }
 
   Future<void> _resetMonthlySales() async {
@@ -80,6 +98,7 @@ class _MonthlyPageState extends State<MonthlyPage> {
       await doc.reference.delete();
     }
 
+    if (!mounted) return;
     setState(() {
       monthlySales = 0.0;
       dailySalesList.clear();
@@ -95,28 +114,28 @@ class _MonthlyPageState extends State<MonthlyPage> {
       context: context,
       builder: (_) => AlertDialog(
         content: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: const [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.warning_amber_rounded,
-                      color: Colors.red,
-                      size: 40,
-                    ),
-                    SizedBox(width: 8),
-                    Text(
-                      'Alert',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 25),
-                    ),
-                  ],
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.warning_amber_rounded,
+                  color: Colors.red,
+                  size: 40,
                 ),
-                SizedBox(height: 20),
-                Text('Are sure to reset the Monthly Sales?', style: TextStyle(fontSize: 15),)
+                SizedBox(width: 8),
+                Text(
+                  'Alert',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 25),
+                ),
               ],
             ),
+            SizedBox(height: 20),
+            Text('Are sure to reset the Monthly Sales?', style: TextStyle(fontSize: 15)),
+          ],
+        ),
         backgroundColor: Colors.white,
         actions: [
           ElevatedButton(
@@ -312,15 +331,17 @@ class _MonthlyPageState extends State<MonthlyPage> {
         ],
       ),
       backgroundColor: Colors.grey[200],
-      body: monthlySales > 0
-          ? Column(
-              children: [
-                const SizedBox(height: 10),
-                Expanded(child: _buildSalesList()),
-                _buildBottomActions(),
-              ],
-            )
-          : _buildEmptyState(),
+      body: isLoading
+          ? Center(child: LoadingAnimationWidget.fallingDot(color: Colors.green, size: 80))
+          : monthlySales > 0
+              ? Column(
+                  children: [
+                    const SizedBox(height: 10),
+                    Expanded(child: _buildSalesList()),
+                    _buildBottomActions(),
+                  ],
+                )
+              : _buildEmptyState(),
     );
   }
 }

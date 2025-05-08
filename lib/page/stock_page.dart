@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:loading_animation_widget/loading_animation_widget.dart';
+
 
 class StockPage extends StatefulWidget {
   final bool isAdmin;
@@ -17,9 +19,15 @@ class _StockPageState extends State<StockPage> {
   final _limitController = TextEditingController();
 
   String _selectedType = '';
-  String _selectedCategory = 'All';
-
-  final List<String> _categories = ['All', 'Raw', 'Milktea', 'Syrup', 'Powder'];
+  String _selectedCategory = 'Raw';
+  bool isLoading = true;
+  final List<String> _categories = ['Raw', 'Milktea', 'Syrup', 'Powder', 'Other'];
+  
+     // Helper function to capitalize the first letter of a string
+  String capitalizeFirstLetter(String text) {
+    if (text.isEmpty) return text;
+    return text[0].toUpperCase() + text.substring(1);
+  }
 
   @override
   void dispose() {
@@ -107,18 +115,16 @@ class _StockPageState extends State<StockPage> {
           decoration: _inputDecoration('Limit'),
         ),
         const SizedBox(height: 16),
-        DropdownButtonFormField<String>(
-          value: _selectedType.isNotEmpty ? _selectedType : null,
-          decoration: _inputDecoration('Type'),
-          items:
-              _categories
-                  .where((item) => item != 'All')
-                  .map(
-                    (type) => DropdownMenuItem(value: type, child: Text(type)),
-                  )
-                  .toList(),
-          onChanged: (value) => setState(() => _selectedType = value ?? ''),
-        ),
+       DropdownButtonFormField<String>(
+        value: _selectedType.isNotEmpty ? _selectedType : null,
+        decoration: _inputDecoration('Type'),
+        items: _categories
+            .map(
+              (type) => DropdownMenuItem(
+                value: type,
+                child: Text(type),),
+                ).toList(),
+        onChanged: (value) => setState(() => _selectedType = value ?? ''),),
         const SizedBox(height: 24),
         ElevatedButton(
           onPressed: () => _submitStockForm(docId),
@@ -139,7 +145,7 @@ class _StockPageState extends State<StockPage> {
   }
 
   Future<void> _submitStockForm(String? docId) async {
-    final name = _nameController.text.trim();
+    final name = capitalizeFirstLetter(_nameController.text.trim());
     final number = _numberController.text.trim();
     final limit = _limitController.text.trim();
 
@@ -154,7 +160,7 @@ class _StockPageState extends State<StockPage> {
       return;
     }
 
-    final docRef = FirebaseFirestore.instance.collection('stock').doc(name);
+    final docRef = FirebaseFirestore.instance.collection('stock').doc(name.toLowerCase());
     final inputQuantity = int.tryParse(number) ?? 0;
     final inputLimit = int.tryParse(limit) ?? 0;
     final doc = await docRef.get();
@@ -162,17 +168,17 @@ class _StockPageState extends State<StockPage> {
     if (docId != null) {
       await docRef.set({
         'name': name,
-        'quantity': inputQuantity.toString(),
-        'limit': inputLimit.toString(),
+        'quantity': inputQuantity,
+        'limit': inputLimit,
         'type': _selectedType,
       });
     } else {
       int currentQuantity =
-          doc.exists ? int.tryParse(doc['quantity'].toString()) ?? 0 : 0;
+          doc.exists ? int.tryParse(doc['quantity']) ?? 0 : 0;
       await docRef.set({
         'name': name,
-        'quantity': (currentQuantity + inputQuantity).toString(),
-        'limit': inputLimit.toString(),
+        'quantity': (currentQuantity + inputQuantity),
+        'limit': inputLimit,
         'type': _selectedType,
       });
     }
@@ -221,39 +227,44 @@ class _StockPageState extends State<StockPage> {
     }
   }
 
-  Widget _buildStockList() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('stock').snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const Center(child: Text('No stocks yet.'));
-        }
-
-        var stocks = snapshot.data!.docs;
-        if (_selectedCategory != 'All') {
-          stocks =
-              stocks.where((doc) => doc['type'] == _selectedCategory).toList();
-        }
-
-        if (stocks.isEmpty) {
-          return const Center(child: Text('No items in this category.'));
-        }
-
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: stocks.length,
-          itemBuilder: (context, index) {
-            final stock = stocks[index];
-            return _buildStockTile(stock);
-          },
+Widget _buildStockList() {
+  return StreamBuilder<QuerySnapshot>(
+    stream: FirebaseFirestore.instance.collection('stock').snapshots(),
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return Center(
+          child: LoadingAnimationWidget.fallingDot(
+            color: Colors.green,
+            size: 80,
+          ),
         );
-      },
-    );
-  }
+      }
+
+      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+        return const Center(child: Text('No stocks yet.'));
+      }
+
+      var stocks = snapshot.data!.docs;
+      if (_selectedCategory != 'All') {
+        stocks = stocks.where((doc) => doc['type'] == _selectedCategory).toList();
+      }
+
+      if (stocks.isEmpty) {
+        return const Center(child: Text('No items in this category.'));
+      }
+
+      return ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: stocks.length,
+        itemBuilder: (context, index) {
+          final stock = stocks[index];
+          return _buildStockTile(stock);
+        },
+      );
+    },
+  );
+}
+
 
   Widget _buildStockTile(QueryDocumentSnapshot stock) {
     final name = stock['name'];
@@ -265,7 +276,7 @@ class _StockPageState extends State<StockPage> {
     final int lim = int.tryParse(limit.toString()) ?? 0;
     final bool isLow = qty <= lim;
     final card = Card(
-      color: isLow ? Colors.red.shade100 : const Color(0xFFF0F5F2),
+      color: isLow ? Colors.red.shade100 : Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       margin: const EdgeInsets.only(bottom: 16),
       elevation: 3,
@@ -276,7 +287,7 @@ class _StockPageState extends State<StockPage> {
           size: 30,
         ),
         title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text('Quantity: $quantity\nLimit: $limit\nType: $type'),
+        subtitle: Text('Quantity: $quantity\nLimit: $limit'),
       ),
     );
 

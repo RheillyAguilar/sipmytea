@@ -192,7 +192,7 @@ class _CartPageState extends State<CartPage> {
     int currentQty = int.tryParse(doc['quantity'].toString()) ?? 0;
     int updatedQty = (currentQty - usedQty).clamp(0, currentQty);
 
-    await doc.reference.update({'quantity': updatedQty.toString()});
+    await doc.reference.update({'quantity': updatedQty});
     if (updatedQty <= limit) {
       await _handleWarning(docName, updatedQty);
     }
@@ -235,6 +235,7 @@ class _CartPageState extends State<CartPage> {
     for (final item in cartItems) {
       final id = _firestore.collection('temp').doc().id;
       await _firestore.doc('$path/$id').set({
+        'category': item.category,
         'productName': item.productName,
         'size': item.size,
         'addOns': item.addOns,
@@ -243,7 +244,104 @@ class _CartPageState extends State<CartPage> {
       });
 
       await _handleInventory(item);
+      await _deductCreampuffCanDo(item, item.addOns);
+      await _deductSaltedCanDo(item.addOns);
     }
+    await _deductPearlCanDo();
+  }
+
+  Future<void> _deductSaltedCanDo(List<String> addOns) async {
+    final docRef = _firestore.collection('finished_goods').doc('Salted Cheese');
+    final saltedDoc = await docRef.get();
+    if (!saltedDoc.exists) return;
+
+    final rawCando = saltedDoc['canDo'];
+    final currentCando = int.tryParse(rawCando.toString());
+    if (currentCando == null) return;
+
+    final updatedCando = (currentCando - 1).clamp(0, currentCando);
+
+    await docRef.update({'canDo': updatedCando});
+
+    if (updatedCando == 0) docRef.delete();
+    if (updatedCando <= 5)
+      _handleWarning('Salted Cheese (canDo)', updatedCando);
+  }
+
+  Future<void> _deductCreampuffCanDo(CartItem item, List<String> addOns) async {
+    final category = item.category.toLowerCase();
+    final hasCreampuff = addOns.map((e) => e.toLowerCase()).toList();
+
+    int deduction = 0;
+    if (category == 'creampuff overload' &&
+        hasCreampuff.contains('creampuff')) {
+      deduction = 2;
+    } else if (category == 'creampuff overload' ||
+        hasCreampuff.contains('creampuff')) {
+      deduction = 1;
+    } else {
+      return;
+    }
+
+    final docRef = _firestore.collection('finished_goods').doc('Creampuff');
+    final creampuffDoc = await docRef.get();
+    if (!creampuffDoc.exists) return;
+
+    final rawCando = creampuffDoc['canDo'];
+    final currentCando = int.tryParse(rawCando.toString());
+    if (currentCando == null) return;
+
+    final updatedCando = (currentCando - deduction).clamp(0, currentCando);
+
+    await docRef.update({'canDo': updatedCando});
+
+    if (updatedCando == 0) docRef.delete();
+    if (updatedCando <= 5) _handleWarning('Creampuff (canDo)', updatedCando);
+  }
+
+  Future<void> _deductPearlCanDo() async {
+    final docRef = _firestore.collection('finished_goods').doc('Pearl');
+    final nataRef = _firestore.collection('stock').doc('nata');
+
+    // Get the current document for Pearl
+    final doc = await docRef.get();
+
+    // If 'Pearl' does NOT exist, deduct from 'nata'
+    if (!doc.exists) {
+      final nataDoc = await nataRef.get();
+      if (nataDoc.exists) {
+        final nataData = nataDoc.data();
+        final currentQuantity = nataData?['quantity'] ?? 0;
+
+        if (currentQuantity > 0) {
+          final updatedQuantity = currentQuantity - 1;
+          await nataRef.update({'quantity': updatedQuantity});
+
+          // Optional: show a warning if quantity reaches the limit
+          if (updatedQuantity <= nataData?['limit']) {
+            await _handleWarning('Nata stock', updatedQuantity);
+          }
+        }
+      }
+      return; // Exit early since Pearl doesn't exist
+    }
+
+    // If Pearl exists, continue deduction from 'canDo'
+    final data = doc.data();
+    final rawCanDo = data?['canDo'];
+    if (rawCanDo == null) return;
+
+    final currentCanDo = int.tryParse(rawCanDo.toString());
+    if (currentCanDo == null) return;
+
+    final deduction = cartItems.length;
+    final updatedCanDo = (currentCanDo - deduction).clamp(0, currentCanDo);
+    await docRef.update({'canDo': updatedCanDo});
+
+    // if the cando reach 0 will automatic delete
+    if (updatedCanDo == 0) await docRef.delete();
+    // if the cando reach 5 will pop a warning
+    if (updatedCanDo <= 5) await _handleWarning('Pearl (canDo)', updatedCanDo);
   }
 
   Future<void> _handleInventory(CartItem item) async {
@@ -252,21 +350,21 @@ class _CartPageState extends State<CartPage> {
     final size = item.size.toLowerCase();
 
     final deductions = <String, int>{
-      if (['regular beef', 'cheese beef'].any(name.contains)) 'Patties': 2,
-      if (name.contains('combo')) 'Patties': 1,
-      if (name.contains('cheesestick')) 'Cheese Stick': 10,
-      if (name.contains('combo')) 'Cheese Stick': 7,
-      if (name.contains('fries')) 'Fries': 170,
-      if (name.contains('combo')) 'Fries': 120,
-      if (name.contains('egg')) 'Egg': 2,
-      if (name.contains('silog')) 'Egg': 1,
+      if (['regular beef', 'cheese beef'].any(name.contains)) 'patties': 2,
+      if (name.contains('combo')) 'patties': 1,
+      if (name.contains('cheesestick')) 'cheese stick': 10,
+      if (name.contains('combo')) 'cheese stick': 7,
+      if (name.contains('fries')) 'fries': 170,
+      if (name.contains('combo')) 'fries': 120,
+      if (name.contains('egg')) 'egg': 2,
+      if (name.contains('silog')) 'egg': 1,
       if (['regular beef', 'cheese beef', 'egg sandwich'].any(name.contains))
-        'Buns': 2,
-      if (name.contains('combo')) 'Bans': 1,
+        'buns': 2,
+      if (name.contains('combo')) 'buns': 1,
       ..._getSmoothieDeductions(category, name, size),
       ..._getFreshTeaDeduction(category, name, size),
       ..._getCreampuffDeduction(category, name, size),
-      ..._getClassicDeduction(category, name, size)
+      ..._getClassicDeduction(category, name, size),
     };
 
     for (final entry in deductions.entries) {
@@ -280,18 +378,19 @@ class _CartPageState extends State<CartPage> {
         );
       }
     }
+
     // Handle cups
-    final cupDocName = {'regular': 'Regular Cups', 'large': 'Large Cups'}[size];
+    final cupDocName = {'regular': 'regular cups', 'large': 'large cups'}[size];
     if (cupDocName != null) {
       final doc = await _firestore.collection('stock').doc(cupDocName).get();
       final limit = int.tryParse(doc['limit'].toString()) ?? 0;
       await _deductStockAndAlert(docName: cupDocName, usedQty: 1, limit: limit);
     }
     // Handle straw
-    final strawDoc = await _firestore.collection('stock').doc('Straw').get();
+    final strawDoc = await _firestore.collection('stock').doc('straw').get();
     if (strawDoc.exists) {
       final limit = int.tryParse(strawDoc['limit'].toString()) ?? 0;
-      await _deductStockAndAlert(docName: 'Straw', usedQty: 1, limit: limit);
+      await _deductStockAndAlert(docName: 'straw', usedQty: 1, limit: limit);
     }
   }
 
@@ -301,14 +400,14 @@ class _CartPageState extends State<CartPage> {
     String size,
   ) {
     final smoothieMap = {
-      'chocolate': 'Chocolate',
-      'strawberry': 'Strawberry',
-      'blueberry': 'Blueberry',
-      'mixberries': 'Mixberries',
-      'coffee': 'Coffee',
-      'mocha': 'Mocha',
+      'chocolate': 'chocolate',
+      'strawberry': 'strawberry',
+      'blueberry': 'blueberry',
+      'mixberries': 'mixberries',
+      'coffee': 'coffee',
+      'mocha': 'mocha',
     };
-
+    // handle deduction each categories
     return {
       for (final entry in smoothieMap.entries)
         if (category == 'smoothies' && name.contains(entry.key))
@@ -322,13 +421,13 @@ class _CartPageState extends State<CartPage> {
     String size,
   ) {
     final freshTeaMap = {
-      'lychee': 'Lychee',
-      'wintermelon': 'Wintermelon',
-      'blueberry': 'Blueberry',
-      'strawberry': 'Strawberry',
-      'kiwi yakult': ' Kiwi Yakult',
+      'lychee': 'lychee',
+      'wintermelon': 'wintermelon',
+      'blueberry': 'blueberry',
+      'strawberry': 'strawberry',
+      'kiwi yakult': ' kiwi yakult',
     };
-
+    // handle deduction each categories
     return {
       for (final entry in freshTeaMap.entries)
         if (category == 'fresh tea' && name.contains(entry.key))
@@ -342,14 +441,14 @@ class _CartPageState extends State<CartPage> {
     String size,
   ) {
     final creampuffOverloadMap = {
-      'honeydew': 'Honeydew',
-      'taro': 'Taro',
-      'match': 'Matcha',
-      'dark chocolate': 'Dark Chocolate',
-      'cookies and cream': 'Cookies and Cream',
-      'chocomalt': 'Chocomalt',
+      'honeydew': 'honeydew',
+      'taro': 'taro',
+      'match': 'matcha',
+      'dark chocolate': 'dark chocolate',
+      'cookies and cream': 'cookies and cream',
+      'chocomalt': 'chocomalt',
     };
-
+    // handle deduction each categories
     return {
       for (final entry in creampuffOverloadMap.entries)
         if (category == 'creampuff overload' && name.contains(entry.key))
@@ -357,45 +456,46 @@ class _CartPageState extends State<CartPage> {
     };
   }
 
-Map<String, int> _getClassicDeduction(
-  String category,
-  String name,
-  String size
-) {
-  final highDeduct = {
-    'wintermelon': 'Wintermelon',
-    'blueberry' : 'Blueberry',
-    'strawberry' : 'Strawberry',
-    'lychee' : 'Lychee',
-    'yogurt' : 'Yogurt',
-    'brown sugar' : 'Brown Sugar',
-    'plain' : 'Plain'
-   };
+  Map<String, int> _getClassicDeduction(
+    String category,
+    String name,
+    String size,
+  ) {
+    final highDeduct = {
+      'wintermelon': 'wintermelon',
+      'blueberry': 'blueberry',
+      'strawberry': 'strawberry',
+      'lychee': 'lychee',
+      'yogurt': 'yogurt',
+      'brown sugar': 'brown sugar',
+      'plain': 'plain',
+    };
 
-  final lowDeduct = {
-     'okinawa' : 'Okinawa',
-    'taro' : 'Taro',
-    'honeydew' : 'Honeydew',
-    'chocolate' : 'chocolate',
-    'coffee' : 'coffee',
-  };
+    final lowDeduct = {
+      'okinawa': 'okinawa',
+      'taro': 'taro',
+      'honeydew': 'honeydew',
+      'chocolate': 'chocolate',
+      'coffee': 'coffee',
+    };
 
-  if (category == 'classic milktea') {
-    for (final entry in highDeduct.entries) {
-      if (name.toLowerCase().contains(entry.key)) {
-        return {entry.value: size == 'regular' ? 30 : 40};
+    if (category == 'classic milktea') {
+      // handle deduction for powder
+      for (final entry in highDeduct.entries) {
+        if (name.toLowerCase().contains(entry.key)) {
+          return {entry.value: size == 'regular' ? 30 : 40};
+        }
+      }
+      // handle deduction for syrup
+      for (final entry in lowDeduct.entries) {
+        if (name.toLowerCase().contains(entry.key)) {
+          return {entry.value: size == 'regular' ? 15 : 20};
+        }
       }
     }
-    for (final entry in lowDeduct.entries) {
-      if (name.toLowerCase().contains(entry.key)) {
-        return {entry.value: size == 'regular' ? 15 : 20};
-      }
-    }
+
+    return {};
   }
-
-  return {};
-}
-
 
   Future<DocumentSnapshot?> _getExistingStockDoc(List<String> names) async {
     for (final name in names) {
@@ -483,15 +583,24 @@ Map<String, int> _getClassicDeduction(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Category: ${item.category}',
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-            ),
-            Text(
-              'Name: ${item.productName}',
+              '${item.category} | ${item.productName}',
               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Size: ${item.size}'),
+                Text(
+                  "₱${item.totalPrice.toStringAsFixed(2)}",
+                  style: TextStyle(
+                    color: Colors.green,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 4),
-            Text('Size: ${item.size}'),
             if (item.addOns.isNotEmpty) ...[
               const SizedBox(height: 8),
               const Text(
@@ -500,17 +609,6 @@ Map<String, int> _getClassicDeduction(
               ),
               ...item.addOns.map((a) => Text('- $a')),
             ],
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerRight,
-              child: Text(
-                "₱${item.totalPrice.toStringAsFixed(2)}",
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.green,
-                ),
-              ),
-            ),
           ],
         ),
       ),
