@@ -160,7 +160,7 @@ class _DailyPageState extends State<DailyPage> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         child: Center(
-          child: LoadingAnimationWidget.fallingDot(color: Colors.green, size: 80)
+          child: LoadingAnimationWidget.fallingDot(color: const Color(0xFF4b8673), size: 80)
         ),
       ),
     );
@@ -216,7 +216,7 @@ class _DailyPageState extends State<DailyPage> {
         padding: const EdgeInsets.all(16.0),
         child: isLoading
             ? Center(
-                child: LoadingAnimationWidget.fallingDot(color: Colors.green, size: 80),
+                child: LoadingAnimationWidget.fallingDot(color: const Color(0xFF4b8673), size: 80),
               )
             : widget.isAdmin ? _buildAdminBody() : _buildUserBody(),
       ),
@@ -375,7 +375,7 @@ void _showCategoryDialog(String categoryTitle, Color cardColor) {
       backgroundColor: Colors.transparent,
       elevation: 0,
       child: Center(
-        child: LoadingAnimationWidget.fallingDot(color: Colors.green, size: 80)
+        child: LoadingAnimationWidget.fallingDot(color: Colors.white, size: 80)
       ),
     ),
   );

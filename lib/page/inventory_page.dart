@@ -369,7 +369,7 @@ Future<void> _confirmDailySales() async {
       elevation: 0,
       child: Center(
         child: LoadingAnimationWidget.fallingDot(
-          color: const Color(0xFF4b8673),
+          color: Colors.white,
           size: 80,
         ),
       ),
@@ -579,7 +579,7 @@ Future<void> _confirmDailySales() async {
       ),
       body: isLoading 
       ? Center(
-        child: LoadingAnimationWidget.fallingDot(color: Colors.green, size: 80),
+        child: LoadingAnimationWidget.fallingDot(color: const Color(0xFF4b8673), size: 80),
       ) : Padding(
         padding: const EdgeInsets.all(16.0),
         child: hasData ? _buildContent() : _buildEmptyState(),
@@ -699,7 +699,7 @@ void _showCategoryDialog(String categoryTitle, Color cardColor) async {
         backgroundColor: Colors.transparent,
         elevation: 0,
         child: Center(
-          child: LoadingAnimationWidget.fallingDot(color: Colors.green, size: 80)
+          child: LoadingAnimationWidget.fallingDot(color: Colors.white, size: 80)
         ),
       ),
     );
@@ -1102,7 +1102,7 @@ void _showErrorDialog(String message) {
               ),
             ),
             child: const Text(
-              'Confirm Daily Sales',
+              'Add to Daily Sales',
               style: TextStyle(color: Colors.white, fontSize: 16),
             ),
           ),

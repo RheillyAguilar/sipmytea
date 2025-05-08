@@ -332,7 +332,7 @@ class _MonthlyPageState extends State<MonthlyPage> {
       ),
       backgroundColor: Colors.grey[200],
       body: isLoading
-          ? Center(child: LoadingAnimationWidget.fallingDot(color: Colors.green, size: 80))
+          ? Center(child: LoadingAnimationWidget.fallingDot(color: const Color(0xFF4b8673), size: 80))
           : monthlySales > 0
               ? Column(
                   children: [

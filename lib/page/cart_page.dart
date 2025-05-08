@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:sipmytea/widget/cart_item.dart';
 import '../cart_data.dart';
 
@@ -19,6 +20,7 @@ class CartPage extends StatefulWidget {
 
 class _CartPageState extends State<CartPage> {
   final _firestore = FirebaseFirestore.instance;
+  bool isLoading = false;
 
   double get totalCartPrice =>
       cartItems.fold(0, (sum, item) => sum + item.totalPrice);
@@ -199,33 +201,53 @@ class _CartPageState extends State<CartPage> {
   }
 
   Future<void> _confirmOrder() async {
-    if (cartItems.isEmpty) {
-      _showSnackBar('Cart is already empty.');
-      return;
-    }
-
-    final paid = await _showAmountBottomSheet();
-    if (paid == null || paid < totalCartPrice) {
-      _showSnackBar('Entered amount is less than total price!');
-      return;
-    }
-
-    final change = paid - totalCartPrice;
-    await _showChangeDialog(change);
-
-    await _saveOrderAndDeductStock();
-
-    if (mounted) {
-      setState(() {
-        sales.addAll(
-          cartItems.map((e) => SaleItem(item: e, dateTime: DateTime.now())),
-        );
-        cartItems.clear();
-      });
-      _showSnackBar('Order confirmed!');
-      widget.onOrderConfirmed();
-    }
+  if (cartItems.isEmpty) {
+    _showSnackBar('Cart is already empty.');
+    return;
   }
+
+  final paid = await _showAmountBottomSheet();
+  if (paid == null || paid < totalCartPrice) {
+    _showSnackBar('Entered amount is less than total price!');
+    return;
+  }
+
+  setState(() => isLoading = true); // Optional: UI loading flag
+
+  // Show loading dialog
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      child: Center(
+        child: LoadingAnimationWidget.fallingDot(color: Colors.white, size: 80),
+      ),
+    ),
+  );
+
+  final change = paid - totalCartPrice;
+  await _showChangeDialog(change);
+  await _saveOrderAndDeductStock();
+
+  if (mounted) {
+    Navigator.of(context).pop(); // Dismiss the loading dialog
+
+    setState(() {
+      sales.addAll(
+        cartItems.map((e) => SaleItem(item: e, dateTime: DateTime.now())),
+      );
+      cartItems.clear();
+      isLoading = false;
+    });
+
+    _showSnackBar('Order confirmed!');
+    widget.onOrderConfirmed();
+  }
+}
+
+
 
   Future<void> _saveOrderAndDeductStock() async {
     final now = DateTime.now();

@@ -435,7 +435,7 @@ class _SalesPageState extends State<SalesPage> {
         elevation: 0,
         child: Center(
           child: LoadingAnimationWidget.fallingDot(
-            color: const Color(0xFF4b8673),
+            color: Colors.white,
             size: 80,
           ),
         ),
@@ -520,7 +520,7 @@ class _SalesPageState extends State<SalesPage> {
       ),
       body: isLoading 
       ? Center(
-        child: LoadingAnimationWidget.fallingDot(color: Colors.green, size: 80),
+        child: LoadingAnimationWidget.fallingDot(color: const Color(0xFF4b8673), size: 80),
       ) : Column(
         children: [
           Expanded(

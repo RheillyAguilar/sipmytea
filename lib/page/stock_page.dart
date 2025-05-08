@@ -234,7 +234,7 @@ Widget _buildStockList() {
       if (snapshot.connectionState == ConnectionState.waiting) {
         return Center(
           child: LoadingAnimationWidget.fallingDot(
-            color: Colors.green,
+            color: const Color(0xFF4b8673),
             size: 80,
           ),
         );
