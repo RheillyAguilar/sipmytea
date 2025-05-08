@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'package:loading_animation_widget/loading_animation_widget.dart';
 
 class InventoryPage extends StatefulWidget {
   final String username;
@@ -22,6 +23,7 @@ class _InventoryPageState extends State<InventoryPage> {
   int silogCount = 0, snackCount = 0, regularCupCount = 0, largeCupCount = 0;
 
   List<Map<String, dynamic>> expenses = [];
+  bool isLoading = true; // Add a loading state variable
 
   @override
   void initState() {
@@ -36,8 +38,21 @@ class _InventoryPageState extends State<InventoryPage> {
     });
   }
 
-  Future<void> _loadData() async {
-    await Future.wait([_loadExpenses(), _loadInventorySales()]);
+ Future<void> _loadData() async {
+    setState(() {
+      isLoading = true; // Set loading to true before fetching data
+    });
+    
+    try {
+      await Future.wait([_loadExpenses(), _loadInventorySales()]);
+    } catch (e) {
+      // Handle errors if needed
+      _showErrorSnackBar('Failed to load data: $e');
+    } finally {
+      setState(() {
+        isLoading = false; // Set loading to false when done
+      });
+    }
   }
 
   Future<void> _loadExpenses() async {
@@ -226,13 +241,6 @@ Future<void> _addToDailySales() async {
   // Save updated data
   if (currentData == null) await docRef.set(updatedData);
   else await docRef.update(updatedData);
-  
-
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(
-      content: Text('Added to Daily Sales and cleared today\'s data'),
-    ),
-  );
 }
 
 
@@ -352,16 +360,40 @@ Future<void> _confirmDailySales() async {
       actions: [
         ElevatedButton(
           onPressed: () async {
-            Navigator.pop(context);
-            await _addToDailySales();
-            await _clearFirestoreData();
-            setState(() {
-              _clearSalesStats();
-              expenses.clear();
-              totalExpenses = 0;
-              inventoryTotalSales = 0;
-            });
-          },
+  // Show loading indicator BEFORE popping anything
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      child: Center(
+        child: LoadingAnimationWidget.fallingDot(
+          color: const Color(0xFF4b8673),
+          size: 80,
+        ),
+      ),
+    ),
+  );
+
+  try {
+    await _addToDailySales();
+    await _clearFirestoreData();
+    setState(() {
+      _clearSalesStats();
+      expenses.clear();
+      totalExpenses = 0;
+      inventoryTotalSales = 0;
+    });
+    
+    Navigator.pop(context); // Close loading dialog
+
+  } catch (e) {
+    Navigator.pop(context); // Close loading dialog
+    _showErrorSnackBar('Failed to process: $e');
+  }
+},
+
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF4b8673),
             shape: RoundedRectangleBorder(
@@ -545,7 +577,10 @@ Future<void> _confirmDailySales() async {
           ),
         ],
       ),
-      body: Padding(
+      body: isLoading 
+      ? Center(
+        child: LoadingAnimationWidget.fallingDot(color: Colors.green, size: 80),
+      ) : Padding(
         padding: const EdgeInsets.all(16.0),
         child: hasData ? _buildContent() : _buildEmptyState(),
       ),
@@ -657,12 +692,17 @@ Future<void> _confirmDailySales() async {
   }
 
 void _showCategoryDialog(String categoryTitle, Color cardColor) async {
-  // Show a loading indicator
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (_) => const Center(child: CircularProgressIndicator()),
-  );
+ showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        child: Center(
+          child: LoadingAnimationWidget.fallingDot(color: Colors.green, size: 80)
+        ),
+      ),
+    );
 
   try {
     final DocumentSnapshot doc = await firestore

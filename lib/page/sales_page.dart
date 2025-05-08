@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:loading_animation_widget/loading_animation_widget.dart';
 
 class SalesPage extends StatefulWidget {
   final String username;
@@ -16,6 +17,7 @@ class _SalesPageState extends State<SalesPage> {
   double totalSales = 0.0;
   List<Map<String, dynamic>> salesData = [];
   List<String> docIds = [];
+  bool isLoading = true;
 
   String get formattedDateDisplay =>
       DateFormat('MMMM d, yyyy').format(DateTime.parse(today));
@@ -29,6 +31,9 @@ class _SalesPageState extends State<SalesPage> {
   }
 
   Future<void> fetchSalesData() async {
+   setState(() {
+     isLoading = true;
+   });
     try {
       final snapshot =
           await FirebaseFirestore.instance
@@ -50,6 +55,10 @@ class _SalesPageState extends State<SalesPage> {
       });
     } catch (e) {
       debugPrint("Error fetching sales: $e");
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
     }
   }
 
@@ -91,6 +100,7 @@ class _SalesPageState extends State<SalesPage> {
               ElevatedButton(
                 onPressed: () {
                   Navigator.of(context).pop(true);
+                  
                   onConfirm();
                 },
                 style: ElevatedButton.styleFrom(
@@ -415,7 +425,28 @@ class _SalesPageState extends State<SalesPage> {
           (direction) => _confirmDialog(
             title: 'Confirm Deletion',
             content: 'Are you sure you want to delete this sale?',
-            onConfirm: () => deleteSale(index),
+             onConfirm: () async {
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        child: Center(
+          child: LoadingAnimationWidget.fallingDot(
+            color: const Color(0xFF4b8673),
+            size: 80,
+          ),
+        ),
+      ),
+    );
+
+    await addToInventorySales();
+
+    // Dismiss loading dialog
+    Navigator.of(context).pop();
+  },
           ),
       background: swipeBackground(isLeft: true),
       secondaryBackground: swipeBackground(isLeft: false),
@@ -487,7 +518,10 @@ class _SalesPageState extends State<SalesPage> {
           ),
         ],
       ),
-      body: Column(
+      body: isLoading 
+      ? Center(
+        child: LoadingAnimationWidget.fallingDot(color: Colors.green, size: 80),
+      ) : Column(
         children: [
           Expanded(
             child:

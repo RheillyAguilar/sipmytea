@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
+import 'package:loading_animation_widget/loading_animation_widget.dart';
 
 class DailyPage extends StatefulWidget {
   final String username;
@@ -20,6 +21,7 @@ class _DailyPageState extends State<DailyPage> {
 
   Map<String, dynamic>? dailyData;
   Map<String, Map<String, dynamic>> allDailyData = {};
+  bool isLoading = true; // Add a loading state variable
 
   // These variables need to be initialized in the widget scope to access them everywhere
   int silogCount = 0;
@@ -35,7 +37,23 @@ class _DailyPageState extends State<DailyPage> {
   }
 
   Future<void> _loadData() async {
-    widget.isAdmin ? await _loadAllUsersDailyData() : await _loadUserDailyData();
+    setState(() {
+      isLoading = true; // Set loading to true when starting data fetch
+    });
+    
+    try {
+      widget.isAdmin ? await _loadAllUsersDailyData() : await _loadUserDailyData();
+    } catch (e) {
+      // Handle errors
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading data: $e')),
+      );
+    } finally {
+      // Ensure loading is set to false even if there's an error
+      setState(() {
+        isLoading = false;
+      });
+    }
   }
 
   Future<void> _loadUserDailyData() async {
@@ -134,33 +152,55 @@ class _DailyPageState extends State<DailyPage> {
 
     if (confirm != true) return;
 
-    final DateTime parsedDate = DateTime.parse(selectedDate);
-    final String formattedDate = DateFormat('MMMM d yyyy').format(parsedDate);
-    final String monthKey = DateFormat('MMMM yyyy').format(parsedDate);
-    final double netSales = (data['netSales'] ?? 0).toDouble();
-
-    final docRef = firestore.collection('monthly_sales').doc(formattedDate);
-    final docSnap = await docRef.get();
-
-    if (docSnap.exists) {
-      final currentAmount = (docSnap.data()?['amount'] ?? 0).toDouble();
-      await docRef.update({'amount': currentAmount + netSales});
-    } else {
-      await docRef.set({'amount': netSales, 'date': monthKey});
-    }
-
-    await firestore
-        .collection('daily_records')
-        .doc(selectedDate)
-        .collection('users')
-        .doc(username)
-        .delete();
-
-    setState(() => allDailyData.remove(username));
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$username\'s sales moved to Monthly')),
+    // Show loading indicator while processing
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        child: Center(
+          child: LoadingAnimationWidget.fallingDot(color: Colors.green, size: 80)
+        ),
+      ),
     );
+
+    try {
+      final DateTime parsedDate = DateTime.parse(selectedDate);
+      final String formattedDate = DateFormat('MMMM d yyyy').format(parsedDate);
+      final String monthKey = DateFormat('MMMM yyyy').format(parsedDate);
+      final double netSales = (data['netSales'] ?? 0).toDouble();
+
+      final docRef = firestore.collection('monthly_sales').doc(formattedDate);
+      final docSnap = await docRef.get();
+
+      if (docSnap.exists) {
+        final currentAmount = (docSnap.data()?['amount'] ?? 0).toDouble();
+        await docRef.update({'amount': currentAmount + netSales});
+      } else {
+        await docRef.set({'amount': netSales, 'date': monthKey});
+      }
+
+      await firestore
+          .collection('daily_records')
+          .doc(selectedDate)
+          .collection('users')
+          .doc(username)
+          .delete();
+
+      setState(() => allDailyData.remove(username));
+
+      // Close loading dialog
+      Navigator.pop(context);
+
+    } catch (e) {
+      // Close loading dialog
+      Navigator.pop(context);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
   }
 
   @override
@@ -174,7 +214,11 @@ class _DailyPageState extends State<DailyPage> {
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: widget.isAdmin ? _buildAdminBody() : _buildUserBody(),
+        child: isLoading
+            ? Center(
+                child: LoadingAnimationWidget.fallingDot(color: Colors.green, size: 80),
+              )
+            : widget.isAdmin ? _buildAdminBody() : _buildUserBody(),
       ),
     );
   }
@@ -323,12 +367,16 @@ void _showCategoryDialog(String categoryTitle, Color cardColor) {
       .collection('users')
       .get();
 
-  // Use a loading indicator while fetching data
+  // Show loading dialog
   showDialog(
     context: context,
     barrierDismissible: false,
-    builder: (context) => const Center(
-      child: CircularProgressIndicator(),
+    builder: (_) => Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      child: Center(
+        child: LoadingAnimationWidget.fallingDot(color: Colors.green, size: 80)
+      ),
     ),
   );
 
@@ -446,8 +494,6 @@ void _showCategoryDialog(String categoryTitle, Color cardColor) {
     // Create color variants for UI
     Color badgeBackgroundColor = cardColor.withOpacity(0.3);
     Color badgeTextColor = cardColor.withOpacity(0.9);
-
-
 
     // Show the dialog with the data
     showDialog(
@@ -601,8 +647,6 @@ void _showCategoryDialog(String categoryTitle, Color cardColor) {
     );
   });
 }
-  
-  
   
   // Helper method to clean item names by removing parentheses
   String _cleanItemName(String itemName) {

@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:iconsax/iconsax.dart';
+import 'package:loading_animation_widget/loading_animation_widget.dart';
 
 class FinishedPage extends StatefulWidget {
   const FinishedPage({super.key});
@@ -16,6 +17,7 @@ class _FinishedPageState extends State<FinishedPage> {
   final CollectionReference stockRef = FirebaseFirestore.instance.collection(
     'stock',
   );
+  bool isLoading = true;
 
   // Utility method for creating text fields
   Widget _buildTextField(
@@ -519,8 +521,14 @@ class _FinishedPageState extends State<FinishedPage> {
             return const Center(child: Text('Something went wrong'));
           }
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+  return Center(
+    child: LoadingAnimationWidget.fallingDot(
+      color: Colors.green,
+      size: 80,
+    ),
+  );
+}
+
 
           final docs = snapshot.data!.docs;
           if (docs.isEmpty) {

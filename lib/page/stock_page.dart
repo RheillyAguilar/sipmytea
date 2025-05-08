@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:loading_animation_widget/loading_animation_widget.dart';
+
 
 class StockPage extends StatefulWidget {
   final bool isAdmin;
@@ -18,9 +20,9 @@ class _StockPageState extends State<StockPage> {
 
   String _selectedType = '';
   String _selectedCategory = 'Raw';
-
+  bool isLoading = true;
   final List<String> _categories = ['Raw', 'Milktea', 'Syrup', 'Powder', 'Other'];
-
+  
      // Helper function to capitalize the first letter of a string
   String capitalizeFirstLetter(String text) {
     if (text.isEmpty) return text;
@@ -225,39 +227,44 @@ class _StockPageState extends State<StockPage> {
     }
   }
 
-  Widget _buildStockList() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('stock').snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const Center(child: Text('No stocks yet.'));
-        }
-
-        var stocks = snapshot.data!.docs;
-        if (_selectedCategory != 'All') {
-          stocks =
-              stocks.where((doc) => doc['type'] == _selectedCategory).toList();
-        }
-
-        if (stocks.isEmpty) {
-          return const Center(child: Text('No items in this category.'));
-        }
-
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: stocks.length,
-          itemBuilder: (context, index) {
-            final stock = stocks[index];
-            return _buildStockTile(stock);
-          },
+Widget _buildStockList() {
+  return StreamBuilder<QuerySnapshot>(
+    stream: FirebaseFirestore.instance.collection('stock').snapshots(),
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return Center(
+          child: LoadingAnimationWidget.fallingDot(
+            color: Colors.green,
+            size: 80,
+          ),
         );
-      },
-    );
-  }
+      }
+
+      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+        return const Center(child: Text('No stocks yet.'));
+      }
+
+      var stocks = snapshot.data!.docs;
+      if (_selectedCategory != 'All') {
+        stocks = stocks.where((doc) => doc['type'] == _selectedCategory).toList();
+      }
+
+      if (stocks.isEmpty) {
+        return const Center(child: Text('No items in this category.'));
+      }
+
+      return ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: stocks.length,
+        itemBuilder: (context, index) {
+          final stock = stocks[index];
+          return _buildStockTile(stock);
+        },
+      );
+    },
+  );
+}
+
 
   Widget _buildStockTile(QueryDocumentSnapshot stock) {
     final name = stock['name'];
