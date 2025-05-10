@@ -145,7 +145,23 @@ class _StockPageState extends State<StockPage> {
   }
 
   Future<void> _submitStockForm(String? docId) async {
-    final name = capitalizeFirstLetter(_nameController.text.trim());
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (_) => Dialog(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            child: Center(
+              child: LoadingAnimationWidget.fallingDot(
+                color: Colors.white,
+                size: 80,
+              ),
+            ),
+          ));
+    try {
+      final name = capitalizeFirstLetter(_nameController.text.trim());
     final number = _numberController.text.trim();
     final limit = _limitController.text.trim();
 
@@ -182,9 +198,16 @@ class _StockPageState extends State<StockPage> {
         'type': _selectedType,
       });
     }
+Navigator.pop(context); // closes the bottom sheet
 
     Navigator.pop(context);
     _resetForm();
+    } catch (e) {
+       Navigator.pop(context); // dismiss loading in case of error
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Failed to save data: $e')),
+    );
+    }
   }
 
   Future<void> _confirmDelete(String docId) async {

@@ -57,11 +57,11 @@ final Map<String, List<Map<String, String>>> menuItems = {
     {"name": "Porksilog", "price": "₱128"},
   ],
   "Add-ons": [
-    {"name": "Coffee Jelly", "price": "₱15"},
+    {"name": "Coffee jelly", "price": "₱15"},
     {"name": "Chocomalt", "price": "₱15"},
-    {"name": "Oreo Crumbs", "price": "₱15"},
+    {"name": "Oreo crumbs", "price": "₱15"},
     {"name": "Yakult", "price": "₱15"},
-    {"name": "Salted Cheese", "price": "₱20"},
+    {"name": "Salted cheese", "price": "₱20"},
     {"name": "Creampuff", "price": "₱20"},
     {"name": "Pearl", "price": "₱20"},
     {"name": "Nata", "price": "₱20"}
