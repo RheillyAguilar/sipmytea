@@ -308,13 +308,7 @@ class AddonSelectionState extends State<AddonSelection> {
                           ...menuItems["Add-ons"]!.map((addOn) {
                             final name = addOn["name"];
                             final price = addOn["price"];
-                            
-                            // Special check for Creampuff, Pearl, and Salted cheese
-                            final bool isSpecialItem = 
-                                name == "Creampuff" || 
-                                name == "Pearl" || 
-                                name == "Salted cheese";
-                                
+                                                        
                             // Get stock quantity (default to 0 if not found)
                             final int quantity = _addOnStock[name] ?? 0;
                             

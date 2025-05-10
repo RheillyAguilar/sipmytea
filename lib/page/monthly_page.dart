@@ -478,7 +478,7 @@ pw.Widget _buildPdfSummaryTable(Map<String, dynamic> data) {
 
 // Helper method to build category tables
 pw.Widget _buildPdfCategoryTable(Map<String, Map<String, int>> categories) {
-  if (categories == null || categories.isEmpty) {
+  if (categories.isEmpty) {
     return pw.Text('No data available', style: const pw.TextStyle(color: PdfColors.grey));
   }
 

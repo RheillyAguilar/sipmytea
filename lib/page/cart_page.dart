@@ -454,6 +454,7 @@ Future<void> _handleInventory(CartItem item) async {
         'mixberries': 'mixberries',
         'coffee': 'coffee',
         'mocha': 'mocha',
+        'dark chocolate' : 'dark chocolate'
       };
       // handle deduction each categories
       return {
@@ -493,6 +494,7 @@ Future<void> _handleInventory(CartItem item) async {
         'taro': 'taro',
         'match': 'matcha',
         'dark chocolate': 'dark chocolate',
+        'chocolate' : 'chocolate',
         'cookies and cream': 'cookies and cream',
         'chocomalt': 'chocomalt',
       };
@@ -525,6 +527,7 @@ Future<void> _handleInventory(CartItem item) async {
         'honeydew': 'honeydew',
         'chocolate': 'chocolate',
         'coffee': 'coffee',
+        'dark chocolate' : 'dark chocolate'
       };
 
       if (category == 'classic milktea') {

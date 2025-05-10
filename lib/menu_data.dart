@@ -11,6 +11,7 @@ final Map<String, List<Map<String, String>>> menuItems = {
     {"name": "Honeydew", "Regular": "₱39", "Large": "₱49"},
     {"name": "Chocolate", "Regular": "₱39", "Large": "₱49"},
     {"name": "Coffee", "Regular": "₱39", "Large": "₱49"},
+    {"name": "Dark Chocolate", "Regular": "₱39", "Large": "₱49"},
     {"name": "Plain", "Regular": "₱39", "Large": "₱49"},
 
   ],
@@ -20,6 +21,7 @@ final Map<String, List<Map<String, String>>> menuItems = {
     {"name": "Strawberry", "Regular": "₱49", "Large": "₱59"},
     {"name": "Mixberries", "Regular": "₱49", "Large": "₱59"},
     {"name": "Coffee", "Regular": "₱49", "Large": "₱59"},
+    {"name": "Dark Chocolate", "Regular": "₱49", "Large": "₱59"},
     {"name": "Mocha", "Regular": "₱49", "Large": "₱59"},
   ],
   "Creampuff Overload": [
@@ -27,6 +29,7 @@ final Map<String, List<Map<String, String>>> menuItems = {
     {"name": "Taro(Blended)", "Large": "₱69"},
     {"name": "Matcha(Blended)", "Large": "₱69"},
     {"name": "Dark Chocolate(Blended)", "Large": "₱69"},
+    {"name": "Chocolate(Blended)", "Large": "₱69"},
     {"name": "Cookies and Cream(Milktea)", "Large": "₱69"},
     {"name": "Chocomalt(Milktea)", "Large": "₱69"},
   ],
