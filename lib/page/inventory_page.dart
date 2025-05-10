@@ -358,7 +358,7 @@ class _InventoryPageState extends State<InventoryPage> {
   // Complete _confirmDailySales function
   Future<void> _confirmDailySales() async {
     if (!mounted) return;
-    
+
     showDialog(
       context: context,
       builder:
@@ -403,32 +403,31 @@ class _InventoryPageState extends State<InventoryPage> {
                   showDialog(
                     context: context,
                     barrierDismissible: false,
-                    builder:
-                        (BuildContext loadingContext) {
-                          _loadingDialogContext = loadingContext;
-                          return Dialog(
-                            backgroundColor: Colors.transparent,
-                            elevation: 0,
-                            child: Center(
-                              child: LoadingAnimationWidget.fallingDot(
-                                color: Colors.white,
-                                size: 80,
-                              ),
-                            ),
-                          );
-                        },
+                    builder: (BuildContext loadingContext) {
+                      _loadingDialogContext = loadingContext;
+                      return Dialog(
+                        backgroundColor: Colors.transparent,
+                        elevation: 0,
+                        child: Center(
+                          child: LoadingAnimationWidget.fallingDot(
+                            color: Colors.white,
+                            size: 80,
+                          ),
+                        ),
+                      );
+                    },
                   );
 
                   try {
                     await _addToDailySales();
                     await _clearFirestoreData();
-                    
+
                     // Close loading dialog safely
                     if (_loadingDialogContext != null && mounted) {
                       Navigator.of(_loadingDialogContext!).pop();
                       _loadingDialogContext = null;
                     }
-                    
+
                     if (mounted) {
                       setState(() {
                         _clearSalesStats();
@@ -443,7 +442,7 @@ class _InventoryPageState extends State<InventoryPage> {
                       Navigator.of(_loadingDialogContext!).pop();
                       _loadingDialogContext = null;
                     }
-                    
+
                     if (mounted) {
                       _showErrorSnackBar('Failed to process: $e');
                     }
@@ -472,7 +471,6 @@ class _InventoryPageState extends State<InventoryPage> {
     );
   }
 
-
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
       context: context,
@@ -489,6 +487,12 @@ class _InventoryPageState extends State<InventoryPage> {
       });
       await _loadData();
     }
+  }
+
+  // Helper function to capitalize the first letter of a string
+  String capitalizeFirstLetter(String text) {
+    if (text.isEmpty) return text;
+    return text[0].toUpperCase() + text.substring(1);
   }
 
   void _showExpenseModalSheet() {
@@ -540,7 +544,10 @@ class _InventoryPageState extends State<InventoryPage> {
           children: [
             ElevatedButton(
               onPressed: () async {
-                final name = nameController.text.trim();
+                final rawName = nameController.text.trim();
+                final name = capitalizeFirstLetter(
+                  rawName,
+                ); // Capitalize the first letter
                 final amount = int.tryParse(amountController.text.trim()) ?? 0;
 
                 if (name.isEmpty || amount <= 0) {
@@ -556,23 +563,23 @@ class _InventoryPageState extends State<InventoryPage> {
                   'username': widget.username,
                 };
 
-                  // Show loading indicator while processing
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder:
-          (_) => Dialog(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            child: Center(
-              child: LoadingAnimationWidget.fallingDot(
-                color: Colors.white,
-                size: 80,
-              ),
-            ),
-          ),
-    );
-                  Navigator.of(context).pop();
+                // Show loading indicator while processing
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder:
+                      (_) => Dialog(
+                        backgroundColor: Colors.transparent,
+                        elevation: 0,
+                        child: Center(
+                          child: LoadingAnimationWidget.fallingDot(
+                            color: Colors.white,
+                            size: 80,
+                          ),
+                        ),
+                      ),
+                );
+                Navigator.of(context).pop();
 
                 try {
                   await firestore
