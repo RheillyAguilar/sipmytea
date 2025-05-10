@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
+import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sipmytea/main.dart';
 
@@ -20,6 +21,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
   final _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
   bool _saveAccount = false;
+  bool isLoading = true;
 
   late final AnimationController _controller;
   late final Animation<Offset> _slideAnimation;
@@ -58,49 +60,58 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
     _loadSavedAccounts();
   }
 
-  Future<void> _login({String? email, String? password}) async {
-    final emailText = email ?? _emailController.text.trim();
-    final passwordText = password ?? _passwordController.text;
+Future<void> _login({String? email, String? password}) async {
+  setState(() => isLoading = true);
+  _showLoadingDialog();
 
-    try {
-      final query = await FirebaseFirestore.instance
-          .collection('account')
-          .where('email', isEqualTo: emailText)
-          .where('password', isEqualTo: passwordText)
-          .get();
+  final emailText = email ?? _emailController.text.trim();
+  final passwordText = password ?? _passwordController.text;
 
-      if (query.docs.isNotEmpty) {
-        final prefs = await SharedPreferences.getInstance();
-        final user = query.docs.first.data();
-        final isAdmin = user['admin'] ?? false;
-        final username = _capitalize(user['username'] ?? '');
+  try {
+    final query = await FirebaseFirestore.instance
+        .collection('account')
+        .where('email', isEqualTo: emailText)
+        .where('password', isEqualTo: passwordText)
+        .get();
 
-        if (_saveAccount) {
-          final saved = prefs.getStringList('savedAccounts') ?? [];
-          saved.removeWhere((e) => jsonDecode(e)['email'] == emailText);
-          final newAccount = {
-            'email': emailText,
-            'password': passwordText,
-            'username': username,
-            'image': _profileImages[Random().nextInt(_profileImages.length)],
-          };
-          saved.add(jsonEncode(newAccount));
-          await prefs.setStringList('savedAccounts', saved);
-        }
+    _hideLoadingDialog();
+    setState(() => isLoading = false);
 
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => MainPage(isAdmin: isAdmin, username: username),
-          ),
-        );
-      } else {
-        _showSnackbar('Invalid email or password');
+    if (query.docs.isNotEmpty) {
+      final prefs = await SharedPreferences.getInstance();
+      final user = query.docs.first.data();
+      final isAdmin = user['admin'] ?? false;
+      final username = _capitalize(user['username'] ?? '');
+
+      if (_saveAccount) {
+        final saved = prefs.getStringList('savedAccounts') ?? [];
+        saved.removeWhere((e) => jsonDecode(e)['email'] == emailText);
+        final newAccount = {
+          'email': emailText,
+          'password': passwordText,
+          'username': username,
+          'image': _profileImages[Random().nextInt(_profileImages.length)],
+        };
+        saved.add(jsonEncode(newAccount));
+        await prefs.setStringList('savedAccounts', saved);
       }
-    } catch (e) {
-      _showSnackbar('Error: ${e.toString()}');
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => MainPage(isAdmin: isAdmin, username: username),
+        ),
+      );
+    } else {
+      _showSnackbar('Invalid email or password');
     }
+  } catch (e) {
+    _hideLoadingDialog();
+    setState(() => isLoading = false);
+    _showSnackbar('Error: ${e.toString()}');
   }
+}
+
 
   String _capitalize(String input) =>
       input.isNotEmpty ? input[0].toUpperCase() + input.substring(1) : '';
@@ -126,6 +137,26 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
       ),
     );
   }
+
+  void _showLoadingDialog() {
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) => Center(
+      child: LoadingAnimationWidget.fallingDot(
+        color: Colors.white,
+        size: 80,
+      ),
+    ),
+  );
+}
+
+void _hideLoadingDialog() {
+  if (Navigator.canPop(context)) {
+    Navigator.pop(context);
+  }
+}
+
 
   void _confirmRemoveAccount(Map<String, String> account) {
     showDialog(

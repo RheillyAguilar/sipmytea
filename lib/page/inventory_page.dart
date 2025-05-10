@@ -38,11 +38,11 @@ class _InventoryPageState extends State<InventoryPage> {
     });
   }
 
- Future<void> _loadData() async {
+  Future<void> _loadData() async {
     setState(() {
       isLoading = true; // Set loading to true before fetching data
     });
-    
+
     try {
       await Future.wait([_loadExpenses(), _loadInventorySales()]);
     } catch (e) {
@@ -65,10 +65,15 @@ class _InventoryPageState extends State<InventoryPage> {
             .collection('expenses')
             .get();
 
-    final loadedExpenses = snapshot.docs
-    .map((doc) => {
-        'name': doc['name'] ?? '',
-        'amount': int.tryParse(doc['amount'].toString()) ?? 0,},).toList();
+    final loadedExpenses =
+        snapshot.docs
+            .map(
+              (doc) => {
+                'name': doc['name'] ?? '',
+                'amount': int.tryParse(doc['amount'].toString()) ?? 0,
+              },
+            )
+            .toList();
     setState(() {
       expenses = loadedExpenses;
       totalExpenses = loadedExpenses.fold(
@@ -80,7 +85,8 @@ class _InventoryPageState extends State<InventoryPage> {
 
   Future<void> _loadInventorySales() async {
     try {
-      final doc = await firestore
+      final doc =
+          await firestore
               .collection('inventory')
               .doc('sales')
               .collection('daily_sales')
@@ -101,21 +107,29 @@ class _InventoryPageState extends State<InventoryPage> {
       // Process the different category counts
       if (doc.data()!.containsKey('silogCount')) {
         calculatedSilogCount = _calculateTotalItemCount(
-          doc.data()!,'silogCount',);
+          doc.data()!,
+          'silogCount',
+        );
       }
       if (doc.data()!.containsKey('snackCount')) {
         calculatedSnackCount = _calculateTotalItemCount(
-          doc.data()!,'snackCount',);
+          doc.data()!,
+          'snackCount',
+        );
       }
 
       if (doc.data()!.containsKey('regularCupCount')) {
         calculatedRegularCupCount = _calculateTotalItemCount(
-          doc.data()!,'regularCupCount',);
+          doc.data()!,
+          'regularCupCount',
+        );
       }
 
       if (doc.data()!.containsKey('largeCupCount')) {
         calculatedLargeCupCount = _calculateTotalItemCount(
-          doc.data()!,'largeCupCount',);
+          doc.data()!,
+          'largeCupCount',
+        );
       }
 
       setState(() {
@@ -145,15 +159,20 @@ class _InventoryPageState extends State<InventoryPage> {
     } else if (countData is Map) {
       // If it's a map format, sum up all the values
       countData.forEach((itemName, count) {
-        if (count is int)totalCount += count;
-        else if (count is String) totalCount += int.tryParse(count) ?? 1;
+        if (count is int)
+          totalCount += count;
+        else if (count is String)
+          totalCount += int.tryParse(count) ?? 1;
         // Default to 1 if we can't parse the count
-        else totalCount += 1;
-        });
+        else
+          totalCount += 1;
+      });
       // If it's just a direct integer
-    } else if (countData is int) totalCount = countData;
-      // If it's a string that can be parsed as a number
-      else if (countData is String) totalCount = int.tryParse(countData) ?? 0;
+    } else if (countData is int)
+      totalCount = countData;
+    // If it's a string that can be parsed as a number
+    else if (countData is String)
+      totalCount = int.tryParse(countData) ?? 0;
 
     return totalCount;
   }
@@ -172,248 +191,287 @@ class _InventoryPageState extends State<InventoryPage> {
     return 0; // Default fallback
   }
 
-Future<void> _addToDailySales() async {
-  final netSales = inventoryTotalSales - totalExpenses;
+  Future<void> _addToDailySales() async {
+    final netSales = inventoryTotalSales - totalExpenses;
 
-  final inventoryDoc = await firestore
-      .collection('inventory')
-      .doc('sales')
-      .collection('daily_sales')
-      .doc(widget.username)
-      .get();
+    final inventoryDoc =
+        await firestore
+            .collection('inventory')
+            .doc('sales')
+            .collection('daily_sales')
+            .doc(widget.username)
+            .get();
 
-  final docRef = firestore
-      .collection('daily_records')
-      .doc(today)
-      .collection('users')
-      .doc(widget.username);
+    final docRef = firestore
+        .collection('daily_records')
+        .doc(today)
+        .collection('users')
+        .doc(widget.username);
 
-  final currentDocSnap = await docRef.get();
-  final currentData = currentDocSnap.data();
-  final inventoryData = inventoryDoc.data() ?? {};
+    final currentDocSnap = await docRef.get();
+    final currentData = currentDocSnap.data();
+    final inventoryData = inventoryDoc.data() ?? {};
 
-  // Initialize updatedData from currentData or as an empty map
-  final updatedData = Map<String, dynamic>.from(currentData ?? {});
+    // Initialize updatedData from currentData or as an empty map
+    final updatedData = Map<String, dynamic>.from(currentData ?? {});
 
-  // Update basic fields
-  updatedData
-    ..['totalSales'] = (currentData?['totalSales'] ?? 0) + inventoryTotalSales
-    ..['silogCount'] = (currentData?['silogCount'] ?? 0) + silogCount
-    ..['snackCount'] = (currentData?['snackCount'] ?? 0) + snackCount
-    ..['regularCupCount'] = (currentData?['regularCupCount'] ?? 0) + regularCupCount
-    ..['largeCupCount'] = (currentData?['largeCupCount'] ?? 0) + largeCupCount
-    ..['netSales'] = (currentData?['netSales'] ?? 0) + netSales
-    ..['timestamp'] = Timestamp.now()
-    ..['username'] = widget.username
-    ..['date'] = today;
+    // Update basic fields
+    updatedData
+      ..['totalSales'] = (currentData?['totalSales'] ?? 0) + inventoryTotalSales
+      ..['silogCount'] = (currentData?['silogCount'] ?? 0) + silogCount
+      ..['snackCount'] = (currentData?['snackCount'] ?? 0) + snackCount
+      ..['regularCupCount'] =
+          (currentData?['regularCupCount'] ?? 0) + regularCupCount
+      ..['largeCupCount'] = (currentData?['largeCupCount'] ?? 0) + largeCupCount
+      ..['netSales'] = (currentData?['netSales'] ?? 0) + netSales
+      ..['timestamp'] = Timestamp.now()
+      ..['username'] = widget.username
+      ..['date'] = today;
 
-  // Merge expense lists
-  final existingExpenses = currentData?['expenses'] ?? [];
-  updatedData['expenses'] = [...existingExpenses, ...expenses];
+    // Merge expense lists
+    final existingExpenses = currentData?['expenses'] ?? [];
+    updatedData['expenses'] = [...existingExpenses, ...expenses];
 
-  // Helper to merge category maps
-  void _mergeCategory(String key) {
-    if (inventoryData.containsKey(key)) {
-      final existing = Map<String, dynamic>.from(currentData?[key] ?? {});
-      existing.addAll(Map<String, dynamic>.from(inventoryData[key]));
-      updatedData[key] = existing;
-    }
-  }
-
-  // Merge all categories
-  _mergeCategory('silogCategories');
-  _mergeCategory('snackCategories');
-  _mergeCategory('regularCupCategories');
-  _mergeCategory('largeCupCategories');
-
-  // Merge count and detailed items
-  void _mergeCountAndItems(String countKey, String detailKey) {
-    if (inventoryData.containsKey(countKey)) {
-      _transferCountData(inventoryData, currentData, updatedData, countKey, detailKey);
-    }
-  }
-
-  _mergeCountAndItems('silogCount', 'silogDetailedItems');
-  _mergeCountAndItems('snackCount', 'snackDetailedItems');
-  _mergeCountAndItems('regularCupCount', 'regularCupDetailedItems');
-  _mergeCountAndItems('largeCupCount', 'largeCupDetailedItems');
-
-  // Save updated data
-  if (currentData == null) await docRef.set(updatedData);
-  else await docRef.update(updatedData);
-}
-
-
-// Helper method to transfer count data
-void _transferCountData(
-  Map<String, dynamic> sourceData, 
-  Map<String, dynamic>? currentData, 
-  Map<String, dynamic> updatedData, 
-  String countKey, 
-  String detailedItemsKey
-) {
-  var countData = sourceData[countKey];
-  Map<String, dynamic> detailedItems = {};
-  
-  if (countData is Map) {
-    detailedItems = Map<String, dynamic>.from(countData);
-  } else if (countData is List) {
-    // Convert list format to map format with counts
-    for (var item in countData) {
-      if (item is String) {
-        detailedItems[item] = (detailedItems[item] ?? 0) + 1;
+    // Helper to merge category maps
+    void _mergeCategory(String key) {
+      if (inventoryData.containsKey(key)) {
+        final existing = Map<String, dynamic>.from(currentData?[key] ?? {});
+        existing.addAll(Map<String, dynamic>.from(inventoryData[key]));
+        updatedData[key] = existing;
       }
     }
+
+    // Merge all categories
+    _mergeCategory('silogCategories');
+    _mergeCategory('snackCategories');
+    _mergeCategory('regularCupCategories');
+    _mergeCategory('largeCupCategories');
+
+    // Merge count and detailed items
+    void _mergeCountAndItems(String countKey, String detailKey) {
+      if (inventoryData.containsKey(countKey)) {
+        _transferCountData(
+          inventoryData,
+          currentData,
+          updatedData,
+          countKey,
+          detailKey,
+        );
+      }
+    }
+
+    _mergeCountAndItems('silogCount', 'silogDetailedItems');
+    _mergeCountAndItems('snackCount', 'snackDetailedItems');
+    _mergeCountAndItems('regularCupCount', 'regularCupDetailedItems');
+    _mergeCountAndItems('largeCupCount', 'largeCupDetailedItems');
+
+    // Save updated data
+    if (currentData == null)
+      await docRef.set(updatedData);
+    else
+      await docRef.update(updatedData);
   }
-  
-  if (detailedItems.isNotEmpty) {
-    Map<String, dynamic> existingItems = 
-        Map<String, dynamic>.from(currentData?[detailedItemsKey] ?? {});
-        
-    detailedItems.forEach((key, value) {
-      int count = value is int ? value : int.tryParse(value.toString()) ?? 0;
-      int existingCount = existingItems[key] is int ? 
-          existingItems[key] : 
-          int.tryParse(existingItems[key]?.toString() ?? '0') ?? 0;
-      
-      existingItems[key] = existingCount + count;
-    });
+
+  // Helper method to transfer count data
+  void _transferCountData(
+    Map<String, dynamic> sourceData,
+    Map<String, dynamic>? currentData,
+    Map<String, dynamic> updatedData,
+    String countKey,
+    String detailedItemsKey,
+  ) {
+    var countData = sourceData[countKey];
+    Map<String, dynamic> detailedItems = {};
+
+    if (countData is Map) {
+      detailedItems = Map<String, dynamic>.from(countData);
+    } else if (countData is List) {
+      // Convert list format to map format with counts
+      for (var item in countData) {
+        if (item is String) {
+          detailedItems[item] = (detailedItems[item] ?? 0) + 1;
+        }
+      }
+    }
+
+    if (detailedItems.isNotEmpty) {
+      Map<String, dynamic> existingItems = Map<String, dynamic>.from(
+        currentData?[detailedItemsKey] ?? {},
+      );
+
+      detailedItems.forEach((key, value) {
+        int count = value is int ? value : int.tryParse(value.toString()) ?? 0;
+        int existingCount =
+            existingItems[key] is int
+                ? existingItems[key]
+                : int.tryParse(existingItems[key]?.toString() ?? '0') ?? 0;
+
+        existingItems[key] = existingCount + count;
+      });
+
+      updatedData[detailedItemsKey] = existingItems;
+    }
+  }
+
+  // Existing _clearFirestoreData function from your code
+  Future<void> _clearFirestoreData() async {
+    final batch = firestore.batch();
+
+    // Delete sales
+    final sales =
+        await firestore
+            .collection('daily_sales')
+            .doc(today)
+            .collection(widget.username)
+            .get();
+    for (var doc in sales.docs) {
+      batch.delete(doc.reference);
+    }
+
+    // Delete expenses
+    final expensesSnapshot =
+        await firestore
+            .collection('inventory')
+            .doc('expenses')
+            .collection('daily_expenses')
+            .doc(widget.username)
+            .collection('expenses')
+            .get();
+    for (var doc in expensesSnapshot.docs) {
+      batch.delete(doc.reference);
+    }
+
+    // Delete summary
+    final summaryDoc = firestore
+        .collection('inventory')
+        .doc('sales')
+        .collection('daily_sales')
+        .doc(widget.username);
+    batch.delete(summaryDoc);
+
+    await batch.commit();
+  }
+
+  // Store context for loading dialog to safely dismiss it later
+  BuildContext? _loadingDialogContext;
+
+  // Complete _confirmDailySales function
+  Future<void> _confirmDailySales() async {
+    if (!mounted) return;
     
-    updatedData[detailedItemsKey] = existingItems;
-  }
-}
-
-// Existing _clearFirestoreData function from your code 
-Future<void> _clearFirestoreData() async {
-  final batch = firestore.batch();
-
-  // Delete sales
-  final sales =
-      await firestore
-          .collection('daily_sales')
-          .doc(today)
-          .collection(widget.username)
-          .get();
-  for (var doc in sales.docs) {
-    batch.delete(doc.reference);
-  }
-
-  // Delete expenses
-  final expensesSnapshot =
-      await firestore
-          .collection('inventory')
-          .doc('expenses')
-          .collection('daily_expenses')
-          .doc(widget.username)
-          .collection('expenses')
-          .get();
-  for (var doc in expensesSnapshot.docs) {
-    batch.delete(doc.reference);
-  }
-
-  // Delete summary
-  final summaryDoc = firestore
-      .collection('inventory')
-      .doc('sales')
-      .collection('daily_sales')
-      .doc(widget.username);
-  batch.delete(summaryDoc);
-
-  await batch.commit();
-}
-
-// Complete _confirmDailySales function
-Future<void> _confirmDailySales() async {
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      backgroundColor: Colors.white,
-      content: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: const [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.warning_amber_rounded,
-                color: Colors.red,
-                size: 40,
-              ),
-              SizedBox(width: 8),
-              Text(
-                'Alert',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 25,
+    showDialog(
+      context: context,
+      builder:
+          (BuildContext dialogContext) => AlertDialog(
+            backgroundColor: Colors.white,
+            content: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.warning_amber_rounded,
+                      color: Colors.red,
+                      size: 40,
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      'Alert',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 25,
+                      ),
+                    ),
+                  ],
                 ),
+                SizedBox(height: 20),
+                Text(
+                  'Are sure to add this to Daily Sales',
+                  style: TextStyle(fontSize: 15),
+                ),
+              ],
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () async {
+                  // Close confirm dialog
+                  Navigator.of(dialogContext).pop();
+
+                  // Show loading indicator
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder:
+                        (BuildContext loadingContext) {
+                          _loadingDialogContext = loadingContext;
+                          return Dialog(
+                            backgroundColor: Colors.transparent,
+                            elevation: 0,
+                            child: Center(
+                              child: LoadingAnimationWidget.fallingDot(
+                                color: Colors.white,
+                                size: 80,
+                              ),
+                            ),
+                          );
+                        },
+                  );
+
+                  try {
+                    await _addToDailySales();
+                    await _clearFirestoreData();
+                    
+                    // Close loading dialog safely
+                    if (_loadingDialogContext != null && mounted) {
+                      Navigator.of(_loadingDialogContext!).pop();
+                      _loadingDialogContext = null;
+                    }
+                    
+                    if (mounted) {
+                      setState(() {
+                        _clearSalesStats();
+                        expenses.clear();
+                        totalExpenses = 0;
+                        inventoryTotalSales = 0;
+                      });
+                    }
+                  } catch (e) {
+                    // Close loading dialog safely on error
+                    if (_loadingDialogContext != null && mounted) {
+                      Navigator.of(_loadingDialogContext!).pop();
+                      _loadingDialogContext = null;
+                    }
+                    
+                    if (mounted) {
+                      _showErrorSnackBar('Failed to process: $e');
+                    }
+                  }
+                },
+
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4b8673),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+
+                child: const Text(
+                  'Confirm',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                style: TextButton.styleFrom(foregroundColor: Colors.grey[700]),
+                child: const Text('Cancel'),
               ),
             ],
           ),
-          SizedBox(height: 20),
-          Text(
-            'Are sure to add this to Daily Sales',
-            style: TextStyle(fontSize: 15),
-          ),
-        ],
-      ),
-      actions: [
-        ElevatedButton(
-          onPressed: () async {
-  // Show loading indicator BEFORE popping anything
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (_) => Dialog(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      child: Center(
-        child: LoadingAnimationWidget.fallingDot(
-          color: const Color(0xFF4b8673),
-          size: 80,
-        ),
-      ),
-    ),
-  );
-
-  try {
-    await _addToDailySales();
-    await _clearFirestoreData();
-    setState(() {
-      _clearSalesStats();
-      expenses.clear();
-      totalExpenses = 0;
-      inventoryTotalSales = 0;
-    });
-    
-    Navigator.pop(context); // Close loading dialog
-
-  } catch (e) {
-    Navigator.pop(context); // Close loading dialog
-    _showErrorSnackBar('Failed to process: $e');
+    );
   }
-},
 
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF4b8673),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-          child: const Text(
-            'Confirm',
-            style: TextStyle(color: Colors.white),
-          ),
-        ),
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          style: TextButton.styleFrom(foregroundColor: Colors.grey[700]),
-          child: const Text('Cancel'),
-        ),
-      ],
-    ),
-  );
-}
 
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
@@ -498,6 +556,24 @@ Future<void> _confirmDailySales() async {
                   'username': widget.username,
                 };
 
+                  // Show loading indicator while processing
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (_) => Dialog(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            child: Center(
+              child: LoadingAnimationWidget.fallingDot(
+                color: Colors.white,
+                size: 80,
+              ),
+            ),
+          ),
+    );
+                  Navigator.of(context).pop();
+
                 try {
                   await firestore
                       .collection('inventory')
@@ -577,13 +653,18 @@ Future<void> _confirmDailySales() async {
           ),
         ],
       ),
-      body: isLoading 
-      ? Center(
-        child: LoadingAnimationWidget.fallingDot(color: Colors.green, size: 80),
-      ) : Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: hasData ? _buildContent() : _buildEmptyState(),
-      ),
+      body:
+          isLoading
+              ? Center(
+                child: LoadingAnimationWidget.fallingDot(
+                  color: const Color(0xFF4b8673),
+                  size: 80,
+                ),
+              )
+              : Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: hasData ? _buildContent() : _buildEmptyState(),
+              ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showExpenseModalSheet,
         backgroundColor: const Color(0xFF4b8673),
@@ -691,256 +772,281 @@ Future<void> _confirmDailySales() async {
     );
   }
 
-void _showCategoryDialog(String categoryTitle, Color cardColor) async {
- showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => Dialog(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        child: Center(
-          child: LoadingAnimationWidget.fallingDot(color: Colors.green, size: 80)
-        ),
-      ),
-    );
-
-  try {
-    final DocumentSnapshot doc = await firestore
-        .collection('inventory')
-        .doc('sales')
-        .collection('daily_sales')
-        .doc(widget.username)
-        .get();
-
-    Navigator.pop(context); // Close the loading dialog
-
-    if (!doc.exists) {
-      _showErrorDialog('No data found for $categoryTitle.');
-      return;
-    }
-
-    Map<String, Map<String, int>> subcategoryItems = {};
-    String countFieldName = '';
-    String categoriesFieldName = '';
-    bool useSubcategories = true;
-
-    switch (categoryTitle) {
-      case 'Silog':
-        countFieldName = 'silogCount';
-        useSubcategories = false;
-        break;
-      case 'Snacks':
-        countFieldName = 'snackCount';
-        useSubcategories = false;
-        break;
-      case 'Regular Cup':
-        countFieldName = 'regularCupCount';
-        categoriesFieldName = 'regularCupCategories';
-        break;
-      case 'Large Cup':
-        countFieldName = 'largeCupCount';
-        categoriesFieldName = 'largeCupCategories';
-        break;
-    }
-
-    final data = doc.data() as Map<String, dynamic>;
-
-    // Build subcategory map
-    Map<String, String> itemToSubcategory = {};
-    if (useSubcategories &&
-        categoriesFieldName.isNotEmpty &&
-        data.containsKey(categoriesFieldName)) {
-      var categories = data[categoriesFieldName];
-      if (categories is Map) {
-        categories.forEach((key, value) {
-          if (key is String && value is String) {
-            itemToSubcategory[key] = value;
-          }
-        });
-      }
-    }
-
-    // Parse item counts
-    if (data.containsKey(countFieldName)) {
-      final countData = data[countFieldName];
-
-      if (countData is List) {
-        for (var item in countData) {
-          if (item is String) {
-            _incrementItemCount(
-              item,
-              useSubcategories,
-              itemToSubcategory,
-              subcategoryItems,
-            );
-          }
-        }
-      } else if (countData is Map) {
-        countData.forEach((key, value) {
-          if (key is String) {
-            int count = 1;
-            if (value is int) {
-              count = value;
-            } else if (value is String) {
-              count = int.tryParse(value) ?? 1;
-            }
-
-            _addItemWithCount(
-              key,
-              count,
-              useSubcategories,
-              itemToSubcategory,
-              subcategoryItems,
-            );
-          }
-        });
-      }
-    }
-
-    // Prepare badge colors
-    Color badgeBackgroundColor = cardColor.withOpacity(0.3);
-    Color badgeTextColor = cardColor.withOpacity(0.9);
-
-
-    // Show the breakdown dialog
+  void _showCategoryDialog(String categoryTitle, Color cardColor) async {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
-        title: Text(
-          '$categoryTitle Breakdown',
-          style: const TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.bold,
-            fontStyle: FontStyle.italic,
+      barrierDismissible: false,
+      builder:
+          (_) => Dialog(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            child: Center(
+              child: LoadingAnimationWidget.fallingDot(
+                color: Colors.white,
+                size: 80,
+              ),
+            ),
           ),
-        ),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: subcategoryItems.isEmpty
-              ? const Center(child: Text('No detailed data available.'))
-              : ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: subcategoryItems.entries
-                      .fold(0, (sum, e) => sum! + e.value.length),
-                  itemBuilder: (context, index) {
-                    int itemsFound = 0;
-                    String? currentSubcategory;
-                    MapEntry<String, int>? currentItem;
-
-                    for (var entry in subcategoryItems.entries) {
-                      final items = entry.value;
-                      if (index < itemsFound + items.length) {
-                        currentSubcategory = entry.key;
-                        currentItem = items.entries
-                            .elementAt(index - itemsFound);
-                        break;
-                      }
-                      itemsFound += items.length;
-                    }
-
-                    if (currentSubcategory == null || currentItem == null) {
-                      return const SizedBox.shrink();
-                    }
-
-                    String displayName = _cleanItemName(currentItem.key);
-
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4.0),
-                      child: Card(
-                        elevation: 2,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 12.0,
-                            horizontal: 16.0,
-                          ),
-                          child: Row(
-                            children: [
-                              if (currentSubcategory.isNotEmpty) ...[
-                                Expanded(
-                                  flex: 3,
-                                  child: Text(
-                                    currentSubcategory,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ),
-                                Container(
-                                  width: 1,
-                                  height: 24,
-                                  color: Colors.grey.shade300,
-                                ),
-                              ],
-                              Expanded(
-                                flex: 3,
-                                child: Padding(
-                                  padding:
-                                      const EdgeInsets.only(left: 16.0),
-                                  child: Text(
-                                    displayName,
-                                    style: const TextStyle(fontSize: 14),
-                                  ),
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12.0,
-                                  vertical: 4.0,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: badgeBackgroundColor,
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: Text(
-                                  '${currentItem.value}',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: badgeTextColor,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            style: TextButton.styleFrom(foregroundColor: Colors.grey[700]),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
     );
-  } catch (e) {
-    Navigator.pop(context); // Ensure loading is dismissed
-    _showErrorDialog('Failed to load data: $e');
+
+    try {
+      final DocumentSnapshot doc =
+          await firestore
+              .collection('inventory')
+              .doc('sales')
+              .collection('daily_sales')
+              .doc(widget.username)
+              .get();
+
+      Navigator.pop(context); // Close the loading dialog
+
+      if (!doc.exists) {
+        _showErrorDialog('No data found for $categoryTitle.');
+        return;
+      }
+
+      Map<String, Map<String, int>> subcategoryItems = {};
+      String countFieldName = '';
+      String categoriesFieldName = '';
+      bool useSubcategories = true;
+
+      switch (categoryTitle) {
+        case 'Silog':
+          countFieldName = 'silogCount';
+          useSubcategories = false;
+          break;
+        case 'Snacks':
+          countFieldName = 'snackCount';
+          useSubcategories = false;
+          break;
+        case 'Regular Cup':
+          countFieldName = 'regularCupCount';
+          categoriesFieldName = 'regularCupCategories';
+          break;
+        case 'Large Cup':
+          countFieldName = 'largeCupCount';
+          categoriesFieldName = 'largeCupCategories';
+          break;
+      }
+
+      final data = doc.data() as Map<String, dynamic>;
+
+      // Build subcategory map
+      Map<String, String> itemToSubcategory = {};
+      if (useSubcategories &&
+          categoriesFieldName.isNotEmpty &&
+          data.containsKey(categoriesFieldName)) {
+        var categories = data[categoriesFieldName];
+        if (categories is Map) {
+          categories.forEach((key, value) {
+            if (key is String && value is String) {
+              itemToSubcategory[key] = value;
+            }
+          });
+        }
+      }
+
+      // Parse item counts
+      if (data.containsKey(countFieldName)) {
+        final countData = data[countFieldName];
+
+        if (countData is List) {
+          for (var item in countData) {
+            if (item is String) {
+              _incrementItemCount(
+                item,
+                useSubcategories,
+                itemToSubcategory,
+                subcategoryItems,
+              );
+            }
+          }
+        } else if (countData is Map) {
+          countData.forEach((key, value) {
+            if (key is String) {
+              int count = 1;
+              if (value is int) {
+                count = value;
+              } else if (value is String) {
+                count = int.tryParse(value) ?? 1;
+              }
+
+              _addItemWithCount(
+                key,
+                count,
+                useSubcategories,
+                itemToSubcategory,
+                subcategoryItems,
+              );
+            }
+          });
+        }
+      }
+
+      // Prepare badge colors
+      Color badgeBackgroundColor = cardColor.withOpacity(0.3);
+      Color badgeTextColor = cardColor.withOpacity(0.9);
+
+      // Show the breakdown dialog
+      showDialog(
+        context: context,
+        builder:
+            (context) => AlertDialog(
+              backgroundColor: Colors.white,
+              title: Text(
+                '$categoryTitle Breakdown',
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+              content: SizedBox(
+                width: double.maxFinite,
+                child:
+                    subcategoryItems.isEmpty
+                        ? const Center(
+                          child: Text('No detailed data available.'),
+                        )
+                        : ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: subcategoryItems.entries.fold(
+                            0,
+                            (sum, e) => sum! + e.value.length,
+                          ),
+                          itemBuilder: (context, index) {
+                            int itemsFound = 0;
+                            String? currentSubcategory;
+                            MapEntry<String, int>? currentItem;
+
+                            for (var entry in subcategoryItems.entries) {
+                              final items = entry.value;
+                              if (index < itemsFound + items.length) {
+                                currentSubcategory = entry.key;
+                                currentItem = items.entries.elementAt(
+                                  index - itemsFound,
+                                );
+                                break;
+                              }
+                              itemsFound += items.length;
+                            }
+
+                            if (currentSubcategory == null ||
+                                currentItem == null) {
+                              return const SizedBox.shrink();
+                            }
+
+                            String displayName = _cleanItemName(
+                              currentItem.key,
+                            );
+
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 4.0,
+                              ),
+                              child: Card(
+                                elevation: 2,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12.0,
+                                    horizontal: 16.0,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      if (currentSubcategory.isNotEmpty) ...[
+                                        Expanded(
+                                          flex: 3,
+                                          child: Text(
+                                            currentSubcategory,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                        ),
+                                        Container(
+                                          width: 1,
+                                          height: 24,
+                                          color: Colors.grey.shade300,
+                                        ),
+                                      ],
+                                      Expanded(
+                                        flex: 3,
+                                        child: Padding(
+                                          padding: const EdgeInsets.only(
+                                            left: 16.0,
+                                          ),
+                                          child: Text(
+                                            displayName,
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12.0,
+                                          vertical: 4.0,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: badgeBackgroundColor,
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          '${currentItem.value}',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: badgeTextColor,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.grey[700],
+                  ),
+                  child: const Text('Close'),
+                ),
+              ],
+            ),
+      );
+    } catch (e) {
+      Navigator.pop(context); // Ensure loading is dismissed
+      _showErrorDialog('Failed to load data: $e');
+    }
   }
-}
-void _showErrorDialog(String message) {
-  showDialog(
-    context: context,
-    builder: (_) => AlertDialog(
-      title: const Text('Error'),
-      content: Text(message),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('OK'),
-        ),
-      ],
-    ),
-  );
-}
+
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder:
+          (_) => AlertDialog(
+            title: const Text('Error'),
+            content: Text(message),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+    );
+  }
 
   // Helper method to clean item names by removing parentheses
   String _cleanItemName(String itemName) {
@@ -1102,7 +1208,7 @@ void _showErrorDialog(String message) {
               ),
             ),
             child: const Text(
-              'Confirm Daily Sales',
+              'Add to Daily Sales',
               style: TextStyle(color: Colors.white, fontSize: 16),
             ),
           ),

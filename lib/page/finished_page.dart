@@ -308,56 +308,86 @@ class _FinishedPageState extends State<FinishedPage> {
     TextEditingController quantityController,
     List<MapEntry<TextEditingController, TextEditingController>>
     ingredientControllers,
-    TextEditingController canDoController, // Accept new controller
+    TextEditingController canDoController,
   ) {
     return ElevatedButton(
       onPressed: () async {
-        String name = capitalizeFirstLetter(nameController.text.trim());
-        String quantity = quantityController.text.trim();
-        String canDo = canDoController.text.trim(); // Get the "Can Do" text
-
-        if (name.isEmpty ||
-            quantity.isEmpty ||
-            canDo.isEmpty || // Add check for "Can Do"
-            ingredientControllers.any(
-              (pair) =>
-                  pair.key.text.trim().isEmpty ||
-                  pair.value.text.trim().isEmpty,
-            )) {
-          Navigator.pop(context);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please fill in all fields')),
-          );
-          return;
-        }
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder:
+              (_) => Dialog(
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                child: Center(
+                  child: LoadingAnimationWidget.fallingDot(
+                    color: Colors.white,
+                    size: 80,
+                  ),
+                ),
+              ),
+        );
 
         try {
-          int qty = int.tryParse(quantity.toString()) ?? 0;
-          int cando = int.tryParse(canDo.toString()) ?? 0;
-          List<Map<String, dynamic>> ingredients =
-              ingredientControllers.map((pair) {
-                return {
-                  'name': capitalizeFirstLetter(pair.key.text.trim()),
-                  'quantity': int.tryParse(pair.value.text.trim()) ?? 0,
-                };
-              }).toList();
+          String name = capitalizeFirstLetter(nameController.text.trim());
+          String quantity = quantityController.text.trim();
+          String canDo = canDoController.text.trim();
 
-          List<String> missingOrLowStockMessages =
-              await _checkStockAvailability(ingredients);
-          if (missingOrLowStockMessages.isNotEmpty) {
-            await _showStockInsufficientDialog(
-              missingOrLowStockMessages,
-              context,
+          if (name.isEmpty ||
+              quantity.isEmpty ||
+              canDo.isEmpty ||
+              ingredientControllers.any(
+                (pair) =>
+                    pair.key.text.trim().isEmpty ||
+                    pair.value.text.trim().isEmpty,
+              )) {
+            Navigator.pop(context); // Dismiss loading dialog
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Please fill in all fields')),
             );
             return;
           }
-          Navigator.pop(context);
-          await _saveFinishedGood(item, name, qty, ingredients, cando);
+
+          try {
+            int qty = int.tryParse(quantity.toString()) ?? 0;
+            int cando = int.tryParse(canDo.toString()) ?? 0;
+            List<Map<String, dynamic>> ingredients =
+                ingredientControllers.map((pair) {
+                  return {
+                    'name': capitalizeFirstLetter(pair.key.text.trim()),
+                    'quantity': int.tryParse(pair.value.text.trim()) ?? 0,
+                  };
+                }).toList();
+
+            List<String> missingOrLowStockMessages =
+                await _checkStockAvailability(ingredients);
+
+            // Dismiss loading dialog before showing stock insufficient dialog
+            Navigator.pop(context); // Dismiss loading dialog
+
+            if (missingOrLowStockMessages.isNotEmpty) {
+              await _showStockInsufficientDialog(
+                missingOrLowStockMessages,
+                context,
+              );
+              return;
+            }
+
+            // Now close the modal bottom sheet since everything is valid
+            Navigator.pop(context);
+
+            await _saveFinishedGood(item, name, qty, ingredients, cando);
+          } catch (e) {
+            Navigator.pop(context); // Dismiss loading dialog
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+          }
         } catch (e) {
-          Navigator.pop(context);
+          Navigator.pop(context); // Dismiss loading dialog
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+          ).showSnackBar(SnackBar(content: Text('Failed to save data: $e')));
         }
       },
       style: ElevatedButton.styleFrom(
@@ -521,14 +551,13 @@ class _FinishedPageState extends State<FinishedPage> {
             return const Center(child: Text('Something went wrong'));
           }
           if (snapshot.connectionState == ConnectionState.waiting) {
-  return Center(
-    child: LoadingAnimationWidget.fallingDot(
-      color: Colors.green,
-      size: 80,
-    ),
-  );
-}
-
+            return Center(
+              child: LoadingAnimationWidget.fallingDot(
+                color: const Color(0xFF4b8673),
+                size: 80,
+              ),
+            );
+          }
 
           final docs = snapshot.data!.docs;
           if (docs.isEmpty) {

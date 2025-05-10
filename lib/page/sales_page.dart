@@ -1,3 +1,5 @@
+// ignore_for_file: empty_statements
+
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
@@ -31,9 +33,9 @@ class _SalesPageState extends State<SalesPage> {
   }
 
   Future<void> fetchSalesData() async {
-   setState(() {
-     isLoading = true;
-   });
+    setState(() {
+      isLoading = true;
+    });
     try {
       final snapshot =
           await FirebaseFirestore.instance
@@ -100,7 +102,7 @@ class _SalesPageState extends State<SalesPage> {
               ElevatedButton(
                 onPressed: () {
                   Navigator.of(context).pop(true);
-                  
+
                   onConfirm();
                 },
                 style: ElevatedButton.styleFrom(
@@ -146,141 +148,167 @@ class _SalesPageState extends State<SalesPage> {
     }
   }
 
-  // Add this function to your _SalesPageState class
   Future<void> addToInventorySales() async {
-    final userSalesRef = FirebaseFirestore.instance
-        .collection('daily_sales')
-        .doc(formattedDate)
-        .collection(widget.username);
-    final snapshot = await userSalesRef.get();
+    setState(() {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder:
+            (_) => Dialog(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              child: Center(
+                child: LoadingAnimationWidget.fallingDot(
+                  color: Colors.white,
+                  size: 80,
+                ),
+              ),
+            ),
+      );
+    });
 
-    final inventoryDocRef = FirebaseFirestore.instance
-        .collection('inventory')
-        .doc('sales')
-        .collection('daily_sales')
-        .doc(widget.username);
+    try {
+      final userSalesRef = FirebaseFirestore.instance
+          .collection('daily_sales')
+          .doc(formattedDate)
+          .collection(widget.username);
+      final snapshot = await userSalesRef.get();
 
-    final existingDoc = await inventoryDocRef.get();
+      final inventoryDocRef = FirebaseFirestore.instance
+          .collection('inventory')
+          .doc('sales')
+          .collection('daily_sales')
+          .doc(widget.username);
 
-    // Process new sales into temporary lists
-    List<Map<String, dynamic>> silogItems = [];
-    List<Map<String, dynamic>> snackItems = [];
-    List<Map<String, dynamic>> regularCupItems = [];
-    List<Map<String, dynamic>> largeCupItems = [];
+      final existingDoc = await inventoryDocRef.get();
 
-    int sum = 0;
+      // Process new sales into temporary lists
+      List<Map<String, dynamic>> silogItems = [];
+      List<Map<String, dynamic>> snackItems = [];
+      List<Map<String, dynamic>> regularCupItems = [];
+      List<Map<String, dynamic>> largeCupItems = [];
 
-    // Process the sales data
-    for (var doc in snapshot.docs) {
-      final data = doc.data();
-      final dynamic amount = data['amount'] ?? 0.0;
-      int amountInt = (amount is num) ? amount.toInt() : 0;
+      int sum = 0;
 
-      final name = (data['productName'] ?? '').toString().toLowerCase();
-      final productName = data['productName'] ?? 'Unknown';
-      final size = (data['size'] ?? '').toString().toLowerCase();
-      final category = data['category'] ?? 'Unknown';
+      // Process the sales data
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        final dynamic amount = data['amount'] ?? 0.0;
+        int amountInt = (amount is num) ? amount.toInt() : 0;
 
-      sum += amountInt;
+        final name = (data['productName'] ?? '').toString().toLowerCase();
+        final productName = data['productName'] ?? 'Unknown';
+        final size = (data['size'] ?? '').toString().toLowerCase();
+        final category = data['category'] ?? 'Unknown';
 
-      Map<String, dynamic> itemData = {
-        'name': productName,
-        'category': category,
+        sum += amountInt;
+
+        Map<String, dynamic> itemData = {
+          'name': productName,
+          'category': category,
+        };
+
+        // Add items to lists - allowing duplicates
+        if (name.contains('silog'))
+          silogItems.add(itemData);
+        else if (RegExp(r'beef|cheese|egg|stick|fries|combo').hasMatch(name))
+          snackItems.add(itemData);
+
+        if (size == 'regular') {
+          regularCupItems.add(itemData);
+        } else if (size == 'large') {
+          largeCupItems.add(itemData);
+        }
+      }
+
+      // Get existing data with proper type casting
+      final Map<String, dynamic> existingData =
+          existingDoc.exists
+              ? Map<String, dynamic>.from(
+                existingDoc.data() as Map<dynamic, dynamic>,
+              )
+              : {};
+
+      // Process counts and categories together
+      Map<String, int> silogCounts = {};
+      Map<String, String> silogCategories = {};
+      _processItemsWithCategories(
+        existingData,
+        'silogCount',
+        'silogCategories',
+        silogItems,
+        silogCounts,
+        silogCategories,
+      );
+
+      Map<String, int> snackCounts = {};
+      Map<String, String> snackCategories = {};
+      _processItemsWithCategories(
+        existingData,
+        'snackCount',
+        'snackCategories',
+        snackItems,
+        snackCounts,
+        snackCategories,
+      );
+
+      Map<String, int> regularCupCounts = {};
+      Map<String, String> regularCupCategories = {};
+      _processItemsWithCategories(
+        existingData,
+        'regularCupCount',
+        'regularCupCategories',
+        regularCupItems,
+        regularCupCounts,
+        regularCupCategories,
+      );
+
+      Map<String, int> largeCupCounts = {};
+      Map<String, String> largeCupCategories = {};
+      _processItemsWithCategories(
+        existingData,
+        'largeCupCount',
+        'largeCupCategories',
+        largeCupItems,
+        largeCupCounts,
+        largeCupCategories,
+      );
+
+      // Prepare data to update
+      final data = {
+        'totalSales': (existingData['totalSales'] ?? 0) + sum,
+        'silogCount': silogCounts,
+        'snackCount': snackCounts,
+        'regularCupCount': regularCupCounts,
+        'largeCupCount': largeCupCounts,
+        'silogCategories': silogCategories,
+        'snackCategories': snackCategories,
+        'regularCupCategories': regularCupCategories,
+        'largeCupCategories': largeCupCategories,
+        'timestamp': FieldValue.serverTimestamp(),
+        'date': today,
       };
 
-      // Add items to lists - allowing duplicates
-      if (name.contains('silog'))
-        silogItems.add(itemData);
-      else if (RegExp(r'beef|cheese|egg|stick|fries|combo').hasMatch(name))
-        snackItems.add(itemData);
+      // Update or insert the data
+      await (existingDoc.exists
+          ? inventoryDocRef.update(data)
+          : inventoryDocRef.set({...data, 'username': widget.username}));
 
-      if (size == 'regular') {
-        regularCupItems.add(itemData);
-      } else if (size == 'large') {
-        largeCupItems.add(itemData);
+      // Delete the processed sales data
+      for (var doc in snapshot.docs) {
+        await doc.reference.delete();
       }
+      Navigator.pop(context);
+
+      // Fetch the updated sales data
+      await fetchSalesData();
+    } catch (e) {
+      print('Error: $e');
+    } finally {
+      setState(() {
+        isLoading = false; // Set loading to false when the function finishes
+      });
     }
-
-    // Get existing data with proper type casting
-    final Map<String, dynamic> existingData =
-        existingDoc.exists
-            ? Map<String, dynamic>.from(
-              existingDoc.data() as Map<dynamic, dynamic>,
-            )
-            : {};
-
-    // Process counts and categories together
-    Map<String, int> silogCounts = {};
-    Map<String, String> silogCategories = {};
-    _processItemsWithCategories(
-      existingData,
-      'silogCount',
-      'silogCategories',
-      silogItems,
-      silogCounts,
-      silogCategories,
-    );
-
-    Map<String, int> snackCounts = {};
-    Map<String, String> snackCategories = {};
-    _processItemsWithCategories(
-      existingData,
-      'snackCount',
-      'snackCategories',
-      snackItems,
-      snackCounts,
-      snackCategories,
-    );
-
-    Map<String, int> regularCupCounts = {};
-    Map<String, String> regularCupCategories = {};
-    _processItemsWithCategories(
-      existingData,
-      'regularCupCount',
-      'regularCupCategories',
-      regularCupItems,
-      regularCupCounts,
-      regularCupCategories,
-    );
-
-    Map<String, int> largeCupCounts = {};
-    Map<String, String> largeCupCategories = {};
-    _processItemsWithCategories(
-      existingData,
-      'largeCupCount',
-      'largeCupCategories',
-      largeCupItems,
-      largeCupCounts,
-      largeCupCategories,
-    );
-
-    // Prepare data to update
-    final data = {
-      'totalSales': (existingData['totalSales'] ?? 0) + sum,
-      'silogCount': silogCounts,
-      'snackCount': snackCounts,
-      'regularCupCount': regularCupCounts,
-      'largeCupCount': largeCupCounts,
-      'silogCategories': silogCategories,
-      'snackCategories': snackCategories,
-      'regularCupCategories': regularCupCategories,
-      'largeCupCategories': largeCupCategories,
-      'timestamp': FieldValue.serverTimestamp(),
-      'date': today,
-    };
-
-    // Update or insert the data
-    await (existingDoc.exists
-        ? inventoryDocRef.update(data)
-        : inventoryDocRef.set({...data, 'username': widget.username}));
-
-    // Delete the processed sales data
-    for (var doc in snapshot.docs) {
-      await doc.reference.delete();
-    }
-
-    // Fetch the updated sales data
-    await fetchSalesData();
   }
 
   // Add this helper method to your _SalesPageState class
@@ -425,28 +453,29 @@ class _SalesPageState extends State<SalesPage> {
           (direction) => _confirmDialog(
             title: 'Confirm Deletion',
             content: 'Are you sure you want to delete this sale?',
-             onConfirm: () async {
-    // Show loading dialog
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => Dialog(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        child: Center(
-          child: LoadingAnimationWidget.fallingDot(
-            color: const Color(0xFF4b8673),
-            size: 80,
-          ),
-        ),
-      ),
-    );
+            onConfirm: () async {
+              // Show loading dialog
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder:
+                    (_) => Dialog(
+                      backgroundColor: Colors.transparent,
+                      elevation: 0,
+                      child: Center(
+                        child: LoadingAnimationWidget.fallingDot(
+                          color: Colors.white,
+                          size: 80,
+                        ),
+                      ),
+                    ),
+              );
 
-    await addToInventorySales();
+              await addToInventorySales();
 
-    // Dismiss loading dialog
-    Navigator.of(context).pop();
-  },
+              // Dismiss loading dialog
+              Navigator.of(context).pop();
+            },
           ),
       background: swipeBackground(isLeft: true),
       secondaryBackground: swipeBackground(isLeft: false),
@@ -518,26 +547,33 @@ class _SalesPageState extends State<SalesPage> {
           ),
         ],
       ),
-      body: isLoading 
-      ? Center(
-        child: LoadingAnimationWidget.fallingDot(color: Colors.green, size: 80),
-      ) : Column(
-        children: [
-          Expanded(
-            child:
-                salesData.isEmpty
-                    ? buildEmptyState()
-                    : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      itemCount: salesData.length,
-                      itemBuilder:
-                          (context, index) =>
-                              buildSaleItem(salesData[index], index),
-                    ),
-          ),
-          if (salesData.isNotEmpty) buildBottomSummary(),
-        ],
-      ),
+      body:
+          isLoading
+              ? Center(
+                child: LoadingAnimationWidget.fallingDot(
+                  color: const Color(0xFF4b8673),
+                  size: 80,
+                ),
+              )
+              : Column(
+                children: [
+                  Expanded(
+                    child:
+                        salesData.isEmpty
+                            ? buildEmptyState()
+                            : ListView.builder(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
+                              itemCount: salesData.length,
+                              itemBuilder:
+                                  (context, index) =>
+                                      buildSaleItem(salesData[index], index),
+                            ),
+                  ),
+                  if (salesData.isNotEmpty) buildBottomSummary(),
+                ],
+              ),
     );
   }
 
