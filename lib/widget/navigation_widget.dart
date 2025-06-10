@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
+import 'package:sipmytea/page/Salary.dart';
 import 'package:sipmytea/page/create_account.dart';
 import 'package:sipmytea/page/daily_page.dart';
 import 'package:sipmytea/page/finished_page.dart';
@@ -47,7 +48,7 @@ class _NavigationWidgetState extends State<NavigationWidget> {
         Navigator.of(context).push(MaterialPageRoute(builder: (_) => InventoryPage(username: widget.username)));
         break;
       case 1:
-        Navigator.of(context).push(MaterialPageRoute(builder: (_) => FinishedPage()));
+        Navigator.of(context).push(MaterialPageRoute(builder: (_) => FinishedPage(isAdmin: widget.isAdmin)));
         break;
       case 2:
         Navigator.of(context).push(MaterialPageRoute(builder: (_) => SalesPage(username: widget.username)));
@@ -65,6 +66,11 @@ class _NavigationWidgetState extends State<NavigationWidget> {
         Navigator.of(context).push(MaterialPageRoute(
           builder: (_) => DailyPage(username: widget.username, isAdmin: widget.isAdmin),
         ));
+        break;
+      case 7:
+        Navigator.of(context).push(MaterialPageRoute(builder: (_) => Salary(
+          username: widget.username, isAdmin: widget.isAdmin
+        )));
         break;
     }
   }
@@ -94,6 +100,7 @@ class _NavigationWidgetState extends State<NavigationWidget> {
                 if (widget.isAdmin) buildItem(text: 'Monthly Sales', icon: Iconsax.calendar, onClicked: () => selectedItem(context, 4)),
                 buildItem(text: 'Finished Goods', icon: Iconsax.document, onClicked: () => selectedItem(context, 1)),
                 buildItem(text: 'Stock', icon: Iconsax.box4, onClicked: () => selectedItem(context, 3)),
+                buildItem(text: 'Salary', icon: Iconsax.money_send, onClicked: () => selectedItem(context, 7)),
                 if (widget.isAdmin) buildItem(text: 'Create Account', icon: Iconsax.user_add, onClicked: () => selectedItem(context, 5)),
               ],
             ),

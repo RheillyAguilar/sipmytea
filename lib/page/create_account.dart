@@ -99,7 +99,13 @@ class _CreateAccountState extends State<CreateAccount> {
     final listTile = ListTile(
       leading: Icon(isAdmin ? Icons.verified_user : Icons.person, color: isAdmin ? Colors.blue : Colors.grey),
       title: Text(data['username'] ?? 'No Username'),
-      subtitle: Text(data['email'] ?? 'No Email'),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(data['email'] ?? 'No Email'),
+          Text(data['password'] ?? 'No Password')
+        ],
+      ),
       trailing: Text(
         isAdmin ? 'Admin' : 'User',
         style: TextStyle(color: isAdmin ? Colors.blue : Colors.black54),

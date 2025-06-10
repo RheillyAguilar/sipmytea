@@ -517,9 +517,28 @@ pw.Widget _buildPdfCategoryTable(Map<String, Map<String, int>> categories) {
 }
 
 // Helper method to build expenses table
+// Helper method to build expenses table with grouped items
 pw.Widget _buildPdfExpensesTable(List<Map<String, dynamic>> expenses, double totalExpenses) {
   if (expenses.isEmpty) {
     return pw.Text('No expenses recorded', style: const pw.TextStyle(color: PdfColors.grey));
+  }
+
+  // Group expenses by name and sum their amounts
+  Map<String, Map<String, dynamic>> groupedExpenses = {};
+  
+  for (var expense in expenses) {
+    String name = expense['name'] ?? 'Unknown';
+    double amount = (expense['amount'] as num).toDouble();
+    
+    if (groupedExpenses.containsKey(name)) {
+      groupedExpenses[name]!['count'] = groupedExpenses[name]!['count'] + 1;
+      groupedExpenses[name]!['totalAmount'] = groupedExpenses[name]!['totalAmount'] + amount;
+    } else {
+      groupedExpenses[name] = {
+        'count': 1,
+        'totalAmount': amount,
+      };
+    }
   }
 
   final rows = <pw.TableRow>[];
@@ -535,17 +554,22 @@ pw.Widget _buildPdfExpensesTable(List<Map<String, dynamic>> expenses, double tot
     ),
   );
 
-  // Data rows
-  for (var expense in expenses) {
+  // Data rows with grouped expenses
+  groupedExpenses.forEach((name, data) {
+    int count = data['count'];
+    double totalAmount = data['totalAmount'];
+    
+    String displayName = count > 1 ? '${count}x $name' : name;
+    
     rows.add(
       pw.TableRow(
         children: [
-          _pdfTableCell(expense['name'] ?? 'Unknown'),
-          _pdfTableCell('${(expense['amount'] as num).toStringAsFixed(2)}'),
+          _pdfTableCell(displayName),
+          _pdfTableCell('${totalAmount.toStringAsFixed(2)}'),
         ],
       ),
     );
-  }
+  });
 
   // Total row
   rows.add(

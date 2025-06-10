@@ -69,6 +69,7 @@ class _InventoryPageState extends State<InventoryPage> {
         snapshot.docs
             .map(
               (doc) => {
+                'id': doc.id, // Add document ID for deletion
                 'name': doc['name'] ?? '',
                 'amount': int.tryParse(doc['amount'].toString()) ?? 0,
               },
@@ -81,6 +82,47 @@ class _InventoryPageState extends State<InventoryPage> {
         (sum, e) => sum + (e['amount'] as int),
       );
     });
+  }
+
+  Future<void> _deleteExpense(String expenseId, int amount) async {
+    try {
+      // Show loading dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          child: Center(
+            child: LoadingAnimationWidget.fallingDot(
+              color: Colors.white,
+              size: 80,
+            ),
+          ),
+        ),
+      );
+
+      // Delete from Firestore
+      await firestore
+          .collection('inventory')
+          .doc('expenses')
+          .collection('daily_expenses')
+          .doc(widget.username)
+          .collection('expenses')
+          .doc(expenseId)
+          .delete();
+
+      // Update local state
+      setState(() {
+        expenses.removeWhere((expense) => expense['id'] == expenseId);
+        totalExpenses -= amount;
+      });
+
+      Navigator.of(context).pop(); // Close loading dialog
+    } catch (e) {
+      Navigator.of(context).pop(); // Close loading dialog
+      _showErrorSnackBar('Failed to delete expense: $e');
+    }
   }
 
   Future<void> _loadInventorySales() async {
@@ -582,7 +624,7 @@ class _InventoryPageState extends State<InventoryPage> {
                 Navigator.of(context).pop();
 
                 try {
-                  await firestore
+                  final docRef = await firestore
                       .collection('inventory')
                       .doc('expenses')
                       .collection('daily_expenses')
@@ -591,7 +633,11 @@ class _InventoryPageState extends State<InventoryPage> {
                       .add(expenseData);
 
                   setState(() {
-                    expenses.add({'name': name, 'amount': amount});
+                    expenses.add({
+                      'id': docRef.id, // Add the document ID
+                      'name': name, 
+                      'amount': amount
+                    });
                     totalExpenses += amount;
                   });
 
@@ -643,8 +689,12 @@ class _InventoryPageState extends State<InventoryPage> {
   void _showErrorSnackBar(String message) {
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ).showSnackBar(SnackBar(
+      content: Text(message),
+      backgroundColor: Colors.red,
+    ));
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -660,18 +710,16 @@ class _InventoryPageState extends State<InventoryPage> {
           ),
         ],
       ),
-      body:
-          isLoading
-              ? Center(
-                child: LoadingAnimationWidget.fallingDot(
-                  color: const Color(0xFF4b8673),
-                  size: 80,
-                ),
-              )
-              : Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: hasData ? _buildContent() : _buildEmptyState(),
-              ),
+      body: isLoading
+          ? Center(
+            child: LoadingAnimationWidget.fallingDot(
+              color: const Color(0xFF4b8673),
+              size: 80,
+            ),
+          )
+          : hasData 
+              ? _buildScrollableContent() 
+              : _buildEmptyState(),
       floatingActionButton: FloatingActionButton(
         onPressed: _showExpenseModalSheet,
         backgroundColor: const Color(0xFF4b8673),
@@ -681,43 +729,52 @@ class _InventoryPageState extends State<InventoryPage> {
     );
   }
 
-  Widget _buildContent() {
+  Widget _buildScrollableContent() {
     return Column(
       children: [
-        if (inventoryTotalSales > 0)
-          Card(
-            color: Colors.grey[100],
-            child: ListTile(
-              title: Text(
-                'Total Sales: ₱$inventoryTotalSales',
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              children: [
+                if (inventoryTotalSales > 0)
+                  Card(
+                    color: Colors.grey[100],
+                    child: ListTile(
+                      title: Text(
+                        'Total Sales: ₱$inventoryTotalSales',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 20),
+                if (inventoryTotalSales > 0) ...[
+                  Row(
+                    children: [
+                      Expanded(child: _buildCategoryCard('Silog', Colors.blue)),
+                      const SizedBox(width: 10),
+                      Expanded(child: _buildCategoryCard('Snacks', Colors.orange)),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(child: _buildCategoryCard('Large Cup', Colors.red)),
+                      const SizedBox(width: 10),
+                      Expanded(child: _buildCategoryCard('Regular Cup', Colors.green)),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 20),
+                if (expenses.isNotEmpty) _buildExpenseCard(),
+                const SizedBox(height: 100), // Extra space for bottom navigation
+              ],
             ),
           ),
-        const SizedBox(height: 20),
-        if (inventoryTotalSales > 0) ...[
-          Row(
-            children: [
-              Expanded(child: _buildCategoryCard('Silog', Colors.blue)),
-              const SizedBox(width: 10),
-              Expanded(child: _buildCategoryCard('Snacks', Colors.orange)),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(child: _buildCategoryCard('Large Cup', Colors.red)),
-              const SizedBox(width: 10),
-              Expanded(child: _buildCategoryCard('Regular Cup', Colors.green)),
-            ],
-          ),
-        ],
-        const SizedBox(height: 20),
-        if (expenses.isNotEmpty) _buildExpenseCard(),
-        const Spacer(),
+        ),
       ],
     );
   }
@@ -1126,43 +1183,132 @@ class _InventoryPageState extends State<InventoryPage> {
   }
 
   Widget _buildExpenseCard() {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 10),
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(11),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Expenses',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            ...expenses.map(
-              (expense) => ListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                title: Text(
-                  expense['name'],
-                  style: const TextStyle(fontSize: 15),
-                ),
-                trailing: Text(
-                  '₱${expense['amount']}',
-                  style: const TextStyle(fontSize: 15),
-                ),
+  return Card(
+    margin: const EdgeInsets.symmetric(vertical: 10),
+    elevation: 3,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    child: Padding(
+      padding: const EdgeInsets.all(11),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Expenses',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          ...expenses.map(
+            (expense) => ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                expense['name'],
+                style: const TextStyle(fontSize: 15),
+              ),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '₱${expense['amount']}',
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(width: 25),
+                  GestureDetector(
+                    onTap: () => _showDeleteExpenseDialog(
+                      expense['id'],
+                      expense['name'],
+                      expense['amount'],
+                    ),
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.delete_outline,
+                        color: Colors.red,
+                        size: 25,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const Divider(),
-            Text(
-              'Total Expenses: ₱$totalExpenses',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
+          ),
+          const Divider(),
+          Text(
+            'Total Expenses: ₱$totalExpenses',
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
+
+void _showDeleteExpenseDialog(String expenseId, String expenseName, int amount) {
+  showDialog(
+    context: context,
+    builder: (BuildContext dialogContext) => AlertDialog(
+      backgroundColor: Colors.white,
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.warning_amber_rounded,
+                color: Colors.red,
+                size: 40,
+              ),
+              SizedBox(width: 8),
+              Text(
+                'Delete Expense',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Are you sure you want to delete "$expenseName" (₱$amount)?',
+            style: const TextStyle(fontSize: 15),
+          ),
+        ],
+      ),
+      actions: [
+        ElevatedButton(
+          onPressed: () async {
+            Navigator.of(dialogContext).pop(); // Close confirm dialog
+            await _deleteExpense(expenseId, amount);
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.red,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          child: const Text(
+            'Delete',
+            style: TextStyle(color: Colors.white),
+          ),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          style: TextButton.styleFrom(foregroundColor: Colors.grey[700]),
+          child: const Text('Cancel'),
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildBottomBar() {
     final netSales = (inventoryTotalSales - totalExpenses).toStringAsFixed(2);
