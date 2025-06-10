@@ -102,7 +102,6 @@ class _SalesPageState extends State<SalesPage> {
               ElevatedButton(
                 onPressed: () {
                   Navigator.of(context).pop(true);
-
                   onConfirm();
                 },
                 style: ElevatedButton.styleFrom(
@@ -127,6 +126,22 @@ class _SalesPageState extends State<SalesPage> {
   }
 
   Future<void> deleteSale(int index) async {
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        child: Center(
+          child: LoadingAnimationWidget.fallingDot(
+            color: Colors.white,
+            size: 80,
+          ),
+        ),
+      ),
+    );
+
     try {
       await FirebaseFirestore.instance
           .collection('daily_sales')
@@ -136,15 +151,21 @@ class _SalesPageState extends State<SalesPage> {
           .delete();
 
       setState(() {
+        // Calculate the amount to subtract from total sales
+        final amount = salesData[index]['amount']?.toDouble() ?? 0.0;
+        
+        // Remove the item from lists
         salesData.removeAt(index);
         docIds.removeAt(index);
-        totalSales = salesData.fold(
-          0.0,
-          (sum, item) => sum + (item['amount']?.toDouble() ?? 0.0),
-        );
+        
+        // Update total sales
+        totalSales -= amount;
       });
     } catch (e) {
       debugPrint("Error deleting sale: $e");
+    } finally {
+      // Dismiss loading dialog
+      Navigator.of(context).pop();
     }
   }
 
@@ -298,15 +319,16 @@ class _SalesPageState extends State<SalesPage> {
       for (var doc in snapshot.docs) {
         await doc.reference.delete();
       }
-      Navigator.pop(context);
 
       // Fetch the updated sales data
       await fetchSalesData();
     } catch (e) {
       print('Error: $e');
     } finally {
+      // Dismiss loading dialog
+      Navigator.pop(context);
       setState(() {
-        isLoading = false; // Set loading to false when the function finishes
+        isLoading = false;
       });
     }
   }
@@ -440,90 +462,90 @@ class _SalesPageState extends State<SalesPage> {
   }
 
   Widget buildSaleItem(Map<String, dynamic> item, int index) {
-    final category = item['category'] ?? '';
-    final productName = item['productName'] ?? 'Unknown';
-    final size = item['size'] ?? 'N/A';
-    final addOns = List<String>.from(item['addOns'] ?? []);
-    final amount = item['amount']?.toDouble() ?? 0.0;
+  final category = (item['category'] ?? '').toString();
+  final productName = item['productName'] ?? 'Unknown';
+  final size = item['size'] ?? 'N/A';
+  final addOns = List<String>.from(item['addOns'] ?? []);
+  final amount = item['amount']?.toDouble() ?? 0.0;
 
-    return Dismissible(
-      key: Key(docIds[index]),
-      direction: DismissDirection.horizontal,
-      confirmDismiss:
-          (direction) => _confirmDialog(
-            title: 'Confirm Deletion',
-            content: 'Are you sure you want to delete this sale?',
-            onConfirm: () async {
-              // Show loading dialog
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder:
-                    (_) => Dialog(
-                      backgroundColor: Colors.transparent,
-                      elevation: 0,
-                      child: Center(
-                        child: LoadingAnimationWidget.fallingDot(
-                          color: Colors.white,
-                          size: 80,
-                        ),
+  // Don't show size if category is silog or snack
+  final showSize = category.toLowerCase() != 'silog' && category.toLowerCase() != 'snack';
+
+  return Dismissible(
+    key: Key(docIds[index]),
+    direction: DismissDirection.horizontal,
+    confirmDismiss: (direction) => _confirmDialog(
+      title: 'Confirm Deletion',
+      content: 'Are you sure you want to delete this sale?',
+      onConfirm: () => deleteSale(index),
+    ),
+    background: swipeBackground(isLeft: true),
+    secondaryBackground: swipeBackground(isLeft: false),
+    child: Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 4,
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            showSize ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                 Text(
+                  '$category | $productName',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Size: $size'),
+                    Text(
+                      "₱${amount.toStringAsFixed(2)}",
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green,
                       ),
                     ),
-              );
-
-              await addToInventorySales();
-
-              // Dismiss loading dialog
-              Navigator.of(context).pop();
-            },
-          ),
-      background: swipeBackground(isLeft: true),
-      secondaryBackground: swipeBackground(isLeft: false),
-      child: Card(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        elevation: 4,
-        margin: const EdgeInsets.symmetric(vertical: 8),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '$category | $productName ',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 4),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('Size: $size'),
-                  Text(
-                    "₱${amount.toStringAsFixed(2)}",
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.green,
-                    ),
-                  ),
-                ],
-              ),
-              if (addOns.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                const Text(
-                  "Add-ons:",
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
-                ),
-                ...addOns.map(
-                  (addOn) =>
-                      Text("- $addOn", style: const TextStyle(fontSize: 15)),
+                  ],
                 ),
               ],
+            ) :Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '$category | $productName',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+                Text(
+                  "₱${amount.toStringAsFixed(2)}",
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green,
+                  ),
+                ),
+              ],
+            ),
+            if (addOns.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              const Text(
+                "Add-ons:",
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+              ),
+              ...addOns.map(
+                (addOn) => Text("- $addOn", style: const TextStyle(fontSize: 15)),
+              ),
             ],
-          ),
+          ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
+
 
   Widget swipeBackground({required bool isLeft}) {
     return Container(

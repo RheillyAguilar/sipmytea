@@ -5,7 +5,8 @@ import 'package:iconsax/iconsax.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 
 class FinishedPage extends StatefulWidget {
-  const FinishedPage({super.key});
+  final bool isAdmin;
+  const FinishedPage({super.key, required this.isAdmin});
 
   @override
   State<FinishedPage> createState() => _FinishedPageState();
@@ -136,11 +137,20 @@ class _FinishedPageState extends State<FinishedPage> {
     final TextEditingController nameController = TextEditingController(
       text: item?['name'],
     );
-    final TextEditingController quantityController = TextEditingController(
-      text: item?['quantity'].toString(),
-    );
     final TextEditingController canDoController =
-        TextEditingController(); // New controller for "Can Do"
+        TextEditingController(text: item?['canDo'].toString());
+    
+    // Store original ingredients for comparison during edit
+    List<Map<String, dynamic>> originalIngredients = [];
+    if (item != null && item['ingredients'] != null) {
+      originalIngredients = List<Map<String, dynamic>>.from(
+        (item['ingredients'] as List).map((ing) => {
+          'name': ing['name'],
+          'quantity': ing['quantity'],
+        })
+      );
+    }
+    
     List<MapEntry<TextEditingController, TextEditingController>>
     ingredientControllers = _initializeIngredientControllers(item);
 
@@ -170,15 +180,9 @@ class _FinishedPageState extends State<FinishedPage> {
                     _buildTextField(nameController, 'Name'),
                     const SizedBox(height: 12),
                     _buildTextField(
-                      quantityController,
-                      'Quantity',
-                      inputType: TextInputType.number,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildTextField(
                       canDoController,
-                      'Can Do', // New label here
-                      inputType: TextInputType.text,
+                      'Can Do',
+                      inputType: TextInputType.number,
                     ),
                     const SizedBox(height: 20),
                     _buildIngredientsSection(setState, ingredientControllers),
@@ -186,9 +190,9 @@ class _FinishedPageState extends State<FinishedPage> {
                     _buildSaveButton(
                       item,
                       nameController,
-                      quantityController,
                       ingredientControllers,
                       canDoController,
+                      originalIngredients,
                     ),
                   ],
                 ),
@@ -305,10 +309,10 @@ class _FinishedPageState extends State<FinishedPage> {
   Widget _buildSaveButton(
     DocumentSnapshot? item,
     TextEditingController nameController,
-    TextEditingController quantityController,
     List<MapEntry<TextEditingController, TextEditingController>>
     ingredientControllers,
     TextEditingController canDoController,
+    List<Map<String, dynamic>> originalIngredients,
   ) {
     return ElevatedButton(
       onPressed: () async {
@@ -330,11 +334,9 @@ class _FinishedPageState extends State<FinishedPage> {
 
         try {
           String name = capitalizeFirstLetter(nameController.text.trim());
-          String quantity = quantityController.text.trim();
           String canDo = canDoController.text.trim();
 
           if (name.isEmpty ||
-              quantity.isEmpty ||
               canDo.isEmpty ||
               ingredientControllers.any(
                 (pair) =>
@@ -349,7 +351,6 @@ class _FinishedPageState extends State<FinishedPage> {
           }
 
           try {
-            int qty = int.tryParse(quantity.toString()) ?? 0;
             int cando = int.tryParse(canDo.toString()) ?? 0;
             List<Map<String, dynamic>> ingredients =
                 ingredientControllers.map((pair) {
@@ -359,8 +360,19 @@ class _FinishedPageState extends State<FinishedPage> {
                   };
                 }).toList();
 
+            // For editing, only check stock for new ingredients
+            List<Map<String, dynamic>> ingredientsToCheck = [];
+            
+            if (item == null) {
+              // If adding new item, check all ingredients
+              ingredientsToCheck = ingredients;
+            } else {
+              // If editing, only check newly added ingredients
+              ingredientsToCheck = _getNewIngredients(ingredients, originalIngredients);
+            }
+
             List<String> missingOrLowStockMessages =
-                await _checkStockAvailability(ingredients);
+                await _checkStockAvailability(ingredientsToCheck);
 
             // Dismiss loading dialog before showing stock insufficient dialog
             Navigator.pop(context); // Dismiss loading dialog
@@ -376,7 +388,7 @@ class _FinishedPageState extends State<FinishedPage> {
             // Now close the modal bottom sheet since everything is valid
             Navigator.pop(context);
 
-            await _saveFinishedGood(item, name, qty, ingredients, cando);
+            await _saveFinishedGood(item, name, ingredients, cando, originalIngredients);
           } catch (e) {
             Navigator.pop(context); // Dismiss loading dialog
             ScaffoldMessenger.of(
@@ -400,6 +412,31 @@ class _FinishedPageState extends State<FinishedPage> {
         style: const TextStyle(color: Colors.white),
       ),
     );
+  }
+
+  // Helper method to get only new ingredients that weren't in the original list
+  List<Map<String, dynamic>> _getNewIngredients(
+    List<Map<String, dynamic>> currentIngredients,
+    List<Map<String, dynamic>> originalIngredients,
+  ) {
+    List<Map<String, dynamic>> newIngredients = [];
+    
+    for (var current in currentIngredients) {
+      bool isNew = true;
+      
+      for (var original in originalIngredients) {
+        if (current['name'].toLowerCase() == original['name'].toLowerCase()) {
+          isNew = false;
+          break;
+        }
+      }
+      
+      if (isNew) {
+        newIngredients.add(current);
+      }
+    }
+    
+    return newIngredients;
   }
 
   Future<List<String>> _checkStockAvailability(
@@ -474,28 +511,37 @@ class _FinishedPageState extends State<FinishedPage> {
   Future<void> _saveFinishedGood(
     DocumentSnapshot? item,
     String name,
-    int qty,
     List<Map<String, dynamic>> ingredients,
     int canDo,
+    List<Map<String, dynamic>> originalIngredients,
   ) async {
     final docRef = finishedGoodsRef.doc(name);
     if (item != null) {
       await docRef.update({
-        'quantity': qty,
         'ingredients': ingredients,
         'canDo': canDo,
       });
     } else {
       await docRef.set({
         'name': name,
-        'quantity': qty,
         'ingredients': ingredients,
         'canDo': canDo,
       });
     }
 
-    // Deduct stock for each ingredient based on the fixed total amount
-    for (var ing in ingredients) {
+    // Determine which ingredients to deduct stock from
+    List<Map<String, dynamic>> ingredientsToDeduct = [];
+    
+    if (item == null) {
+      // If adding new item, deduct all ingredients
+      ingredientsToDeduct = ingredients;
+    } else {
+      // If editing, only deduct newly added ingredients
+      ingredientsToDeduct = _getNewIngredients(ingredients, originalIngredients);
+    }
+
+    // Deduct stock only for the determined ingredients
+    for (var ing in ingredientsToDeduct) {
       final ingName = ing['name'].toLowerCase();
       final totalRequiredQty = (ing['quantity'] as num).toInt();
 
@@ -569,7 +615,8 @@ class _FinishedPageState extends State<FinishedPage> {
             itemCount: docs.length,
             itemBuilder: (context, index) {
               final item = docs[index];
-              return Slidable(
+              return widget.isAdmin 
+              ? Slidable(
                 key: ValueKey(item.id),
                 startActionPane: ActionPane(
                   motion: const DrawerMotion(),
@@ -612,7 +659,7 @@ class _FinishedPageState extends State<FinishedPage> {
                   ],
                 ),
                 child: _buildFinishedGoodCard(item),
-              );
+              ) : _buildFinishedGoodCard(item);
             },
           );
         },
@@ -646,7 +693,7 @@ class _FinishedPageState extends State<FinishedPage> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    '${item['name']} | ${item['quantity']} | ${item['canDo']}',
+                    '${item['name']} | ${item['canDo']}',
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 18,
