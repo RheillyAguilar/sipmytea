@@ -31,3 +31,9 @@
 - Deduction for drinks
 - Categories and type for Stock
 - Refactor
+
+### v3.3 - 4.1
+- Optimization of deduction and checking availability of item
+- Delete function for expenses
+- Salary Page
+- Pdf sales
