@@ -21,6 +21,8 @@ class _InventoryPageState extends State<InventoryPage> {
   int inventoryTotalSales = 0;
   int totalExpenses = 0;
   int silogCount = 0, snackCount = 0, regularCupCount = 0, largeCupCount = 0;
+  int cashTotal = 0;
+  int gcashTotal = 0;
 
   List<Map<String, dynamic>> expenses = [];
   bool isLoading = true; // Add a loading state variable
@@ -35,6 +37,7 @@ class _InventoryPageState extends State<InventoryPage> {
   void _clearSalesStats() {
     setState(() {
       silogCount = snackCount = regularCupCount = largeCupCount = 0;
+      cashTotal = gcashTotal = 0;
     });
   }
 
@@ -136,7 +139,11 @@ class _InventoryPageState extends State<InventoryPage> {
               .get();
       if (!doc.exists || doc['date'] != today) {
         _clearSalesStats();
-        setState(() => inventoryTotalSales = 0);
+        setState(() {
+          inventoryTotalSales = 0;
+          cashTotal = 0;
+          gcashTotal = 0;
+        });
         return;
       }
 
@@ -174,6 +181,20 @@ class _InventoryPageState extends State<InventoryPage> {
         );
       }
 
+// Extract payment method totals
+int calculatedCashTotal = 0;
+int calculatedGcashTotal = 0;
+
+if (doc.data()!.containsKey('paymentMethodTotals')) {
+  final paymentTotals = doc.data()!['paymentMethodTotals'];
+  if (paymentTotals is Map) {
+    // Cast to Map<String, dynamic> to match the expected type
+    final paymentTotalsMap = Map<String, dynamic>.from(paymentTotals);
+    calculatedCashTotal = _extractIntValue(paymentTotalsMap, 'cash');
+    calculatedGcashTotal = _extractIntValue(paymentTotalsMap, 'gcash');
+  }
+}
+
       setState(() {
         // Safely extract totalSales as an integer
         inventoryTotalSales = _extractIntValue(doc.data(), 'totalSales');
@@ -182,11 +203,18 @@ class _InventoryPageState extends State<InventoryPage> {
         snackCount = calculatedSnackCount;
         regularCupCount = calculatedRegularCupCount;
         largeCupCount = calculatedLargeCupCount;
+        // Set payment method totals
+        cashTotal = calculatedCashTotal;
+        gcashTotal = calculatedGcashTotal;
       });
     } catch (e) {
       // Handle error gracefully, maybe show a message to user
       _clearSalesStats();
-      setState(() => inventoryTotalSales = 0);
+      setState(() {
+        inventoryTotalSales = 0;
+        cashTotal = 0;
+        gcashTotal = 0;
+      });
     }
   }
 
@@ -233,86 +261,90 @@ class _InventoryPageState extends State<InventoryPage> {
     return 0; // Default fallback
   }
 
-  Future<void> _addToDailySales() async {
-    final netSales = inventoryTotalSales - totalExpenses;
+Future<void> _addToDailySales() async {
+  final netSales = inventoryTotalSales - totalExpenses;
 
-    final inventoryDoc =
-        await firestore
-            .collection('inventory')
-            .doc('sales')
-            .collection('daily_sales')
-            .doc(widget.username)
-            .get();
+  final inventoryDoc =
+      await firestore
+          .collection('inventory')
+          .doc('sales')
+          .collection('daily_sales')
+          .doc(widget.username)
+          .get();
 
-    final docRef = firestore
-        .collection('daily_records')
-        .doc(today)
-        .collection('users')
-        .doc(widget.username);
+  final docRef = firestore
+      .collection('daily_records')
+      .doc(today)
+      .collection('users')
+      .doc(widget.username);
 
-    final currentDocSnap = await docRef.get();
-    final currentData = currentDocSnap.data();
-    final inventoryData = inventoryDoc.data() ?? {};
+  final currentDocSnap = await docRef.get();
+  final currentData = currentDocSnap.data();
+  final inventoryData = inventoryDoc.data() ?? {};
 
-    // Initialize updatedData from currentData or as an empty map
-    final updatedData = Map<String, dynamic>.from(currentData ?? {});
+  // Initialize updatedData from currentData or as an empty map
+  final updatedData = Map<String, dynamic>.from(currentData ?? {});
 
-    // Update basic fields
-    updatedData
-      ..['totalSales'] = (currentData?['totalSales'] ?? 0) + inventoryTotalSales
-      ..['silogCount'] = (currentData?['silogCount'] ?? 0) + silogCount
-      ..['snackCount'] = (currentData?['snackCount'] ?? 0) + snackCount
-      ..['regularCupCount'] =
-          (currentData?['regularCupCount'] ?? 0) + regularCupCount
-      ..['largeCupCount'] = (currentData?['largeCupCount'] ?? 0) + largeCupCount
-      ..['netSales'] = (currentData?['netSales'] ?? 0) + netSales
-      ..['timestamp'] = Timestamp.now()
-      ..['username'] = widget.username
-      ..['date'] = today;
+  // Update basic fields
+  updatedData
+    ..['totalSales'] = (currentData?['totalSales'] ?? 0) + inventoryTotalSales
+    ..['silogCount'] = (currentData?['silogCount'] ?? 0) + silogCount
+    ..['snackCount'] = (currentData?['snackCount'] ?? 0) + snackCount
+    ..['regularCupCount'] =
+        (currentData?['regularCupCount'] ?? 0) + regularCupCount
+    ..['largeCupCount'] = (currentData?['largeCupCount'] ?? 0) + largeCupCount
+    ..['netSales'] = (currentData?['netSales'] ?? 0) + netSales
+    ..['timestamp'] = Timestamp.now()
+    ..['username'] = widget.username
+    ..['date'] = today;
 
-    // Merge expense lists
-    final existingExpenses = currentData?['expenses'] ?? [];
-    updatedData['expenses'] = [...existingExpenses, ...expenses];
+  // Add payment method totals
+  updatedData['cashTotal'] = (currentData?['cashTotal'] ?? 0) + cashTotal;
+  updatedData['gcashTotal'] = (currentData?['gcashTotal'] ?? 0) + gcashTotal;
 
-    // Helper to merge category maps
-    void _mergeCategory(String key) {
-      if (inventoryData.containsKey(key)) {
-        final existing = Map<String, dynamic>.from(currentData?[key] ?? {});
-        existing.addAll(Map<String, dynamic>.from(inventoryData[key]));
-        updatedData[key] = existing;
-      }
+  // Merge expense lists
+  final existingExpenses = currentData?['expenses'] ?? [];
+  updatedData['expenses'] = [...existingExpenses, ...expenses];
+
+  // Helper to merge category maps
+  void _mergeCategory(String key) {
+    if (inventoryData.containsKey(key)) {
+      final existing = Map<String, dynamic>.from(currentData?[key] ?? {});
+      existing.addAll(Map<String, dynamic>.from(inventoryData[key]));
+      updatedData[key] = existing;
     }
-
-    // Merge all categories
-    _mergeCategory('silogCategories');
-    _mergeCategory('snackCategories');
-    _mergeCategory('regularCupCategories');
-    _mergeCategory('largeCupCategories');
-
-    // Merge count and detailed items
-    void _mergeCountAndItems(String countKey, String detailKey) {
-      if (inventoryData.containsKey(countKey)) {
-        _transferCountData(
-          inventoryData,
-          currentData,
-          updatedData,
-          countKey,
-          detailKey,
-        );
-      }
-    }
-
-    _mergeCountAndItems('silogCount', 'silogDetailedItems');
-    _mergeCountAndItems('snackCount', 'snackDetailedItems');
-    _mergeCountAndItems('regularCupCount', 'regularCupDetailedItems');
-    _mergeCountAndItems('largeCupCount', 'largeCupDetailedItems');
-
-    // Save updated data
-    if (currentData == null)
-      await docRef.set(updatedData);
-    else
-      await docRef.update(updatedData);
   }
+
+  // Merge all categories
+  _mergeCategory('silogCategories');
+  _mergeCategory('snackCategories');
+  _mergeCategory('regularCupCategories');
+  _mergeCategory('largeCupCategories');
+
+  // Merge count and detailed items
+  void _mergeCountAndItems(String countKey, String detailKey) {
+    if (inventoryData.containsKey(countKey)) {
+      _transferCountData(
+        inventoryData,
+        currentData,
+        updatedData,
+        countKey,
+        detailKey,
+      );
+    }
+  }
+
+  _mergeCountAndItems('silogCount', 'silogDetailedItems');
+  _mergeCountAndItems('snackCount', 'snackDetailedItems');
+  _mergeCountAndItems('regularCupCount', 'regularCupDetailedItems');
+  _mergeCountAndItems('largeCupCount', 'largeCupDetailedItems');
+
+  // Save updated data
+  if (currentData == null)
+    await docRef.set(updatedData);
+  else
+    await docRef.update(updatedData);
+}
 
   // Helper method to transfer count data
   void _transferCountData(
@@ -695,6 +727,74 @@ class _InventoryPageState extends State<InventoryPage> {
     ));
   }
 
+  Widget _buildPaymentMethodCards() {
+    return Column(
+      children: [
+        const SizedBox(height: 20),
+        Row(
+          children: [
+            Expanded(
+              child: Card(
+                color: Colors.green[400],
+                child: ListTile(
+                  title: const Text(
+                    'Cash',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  subtitle: Text(
+                    '₱$cashTotal',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  leading: const Icon(
+                    Icons.money,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Card(
+                color: Colors.blue[400],
+                child: ListTile(
+                  title: const Text(
+                    'Gcash',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  subtitle: Text(
+                    '₱$gcashTotal',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  leading: const Icon(
+                    Icons.phone_android,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -742,7 +842,7 @@ class _InventoryPageState extends State<InventoryPage> {
                     color: Colors.grey[100],
                     child: ListTile(
                       title: Text(
-                        'Total Sales: ₱$inventoryTotalSales',
+                        'Sales: ₱$inventoryTotalSales',
                         style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -750,11 +850,15 @@ class _InventoryPageState extends State<InventoryPage> {
                       ),
                     ),
                   ),
+                
+                // Add payment method cards here
+                if (inventoryTotalSales > 0) _buildPaymentMethodCards(),
+                
                 const SizedBox(height: 20),
                 if (inventoryTotalSales > 0) ...[
                   Row(
                     children: [
-                      Expanded(child: _buildCategoryCard('Silog', Colors.blue)),
+                      Expanded(child: _buildCategoryCard('Silog', Color(0xffb19985))),
                       const SizedBox(width: 10),
                       Expanded(child: _buildCategoryCard('Snacks', Colors.orange)),
                     ],
@@ -762,9 +866,9 @@ class _InventoryPageState extends State<InventoryPage> {
                   const SizedBox(height: 10),
                   Row(
                     children: [
-                      Expanded(child: _buildCategoryCard('Large Cup', Colors.red)),
+                      Expanded(child: _buildCategoryCard('Large Cup',Color(0XFF944547),)),
                       const SizedBox(width: 10),
-                      Expanded(child: _buildCategoryCard('Regular Cup', Colors.green)),
+                      Expanded(child: _buildCategoryCard('Regular Cup', Color(0xff7b679a))),
                     ],
                   ),
                 ],
@@ -894,6 +998,8 @@ class _InventoryPageState extends State<InventoryPage> {
       }
 
       final data = doc.data() as Map<String, dynamic>;
+
+      // Build subc
 
       // Build subcategory map
       Map<String, String> itemToSubcategory = {};

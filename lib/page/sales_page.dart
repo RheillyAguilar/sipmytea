@@ -169,170 +169,195 @@ class _SalesPageState extends State<SalesPage> {
     }
   }
 
-  Future<void> addToInventorySales() async {
-    setState(() {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder:
-            (_) => Dialog(
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              child: Center(
-                child: LoadingAnimationWidget.fallingDot(
-                  color: Colors.white,
-                  size: 80,
-                ),
-              ),
-            ),
-      );
-    });
+Future<void> addToInventorySales() async {
+  setState(() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        child: Center(
+          child: LoadingAnimationWidget.fallingDot(
+            color: Colors.white,
+            size: 80,
+          ),
+        ),
+      ),
+    );
+  });
 
-    try {
-      final userSalesRef = FirebaseFirestore.instance
-          .collection('daily_sales')
-          .doc(formattedDate)
-          .collection(widget.username);
-      final snapshot = await userSalesRef.get();
+  try {
+    final userSalesRef = FirebaseFirestore.instance
+        .collection('daily_sales')
+        .doc(formattedDate)
+        .collection(widget.username);
+    final snapshot = await userSalesRef.get();
 
-      final inventoryDocRef = FirebaseFirestore.instance
-          .collection('inventory')
-          .doc('sales')
-          .collection('daily_sales')
-          .doc(widget.username);
+    final inventoryDocRef = FirebaseFirestore.instance
+        .collection('inventory')
+        .doc('sales')
+        .collection('daily_sales')
+        .doc(widget.username);
 
-      final existingDoc = await inventoryDocRef.get();
+    final existingDoc = await inventoryDocRef.get();
 
-      // Process new sales into temporary lists
-      List<Map<String, dynamic>> silogItems = [];
-      List<Map<String, dynamic>> snackItems = [];
-      List<Map<String, dynamic>> regularCupItems = [];
-      List<Map<String, dynamic>> largeCupItems = [];
+    // Process new sales into temporary lists
+    List<Map<String, dynamic>> silogItems = [];
+    List<Map<String, dynamic>> snackItems = [];
+    List<Map<String, dynamic>> regularCupItems = [];
+    List<Map<String, dynamic>> largeCupItems = [];
 
-      int sum = 0;
+    // Payment method tracking
+    Map<String, double> paymentMethodTotals = {};
 
-      // Process the sales data
-      for (var doc in snapshot.docs) {
-        final data = doc.data();
-        final dynamic amount = data['amount'] ?? 0.0;
-        int amountInt = (amount is num) ? amount.toInt() : 0;
+    int sum = 0;
 
-        final name = (data['productName'] ?? '').toString().toLowerCase();
-        final productName = data['productName'] ?? 'Unknown';
-        final size = (data['size'] ?? '').toString().toLowerCase();
-        final category = data['category'] ?? 'Unknown';
+    // Process the sales data
+    for (var doc in snapshot.docs) {
+      final data = doc.data();
+      final dynamic amount = data['amount'] ?? 0.0;
+      int amountInt = (amount is num) ? amount.toInt() : 0;
+      double amountDouble = (amount is num) ? amount.toDouble() : 0.0;
 
-        sum += amountInt;
+      final name = (data['productName'] ?? '').toString().toLowerCase();
+      final productName = data['productName'] ?? 'Unknown';
+      final size = (data['size'] ?? '').toString().toLowerCase();
+      final category = data['category'] ?? 'Unknown';
+      final paymentMethod = (data['paymentMethod'] ?? 'Unknown').toString();
 
-        Map<String, dynamic> itemData = {
-          'name': productName,
-          'category': category,
-        };
+      sum += amountInt;
 
-        // Add items to lists - allowing duplicates
-        if (name.contains('silog'))
-          silogItems.add(itemData);
-        else if (RegExp(r'beef|cheese|egg|stick|fries|combo').hasMatch(name))
-          snackItems.add(itemData);
+      // Track payment method totals
+      paymentMethodTotals[paymentMethod] = 
+          (paymentMethodTotals[paymentMethod] ?? 0.0) + amountDouble;
 
-        if (size == 'regular') {
-          regularCupItems.add(itemData);
-        } else if (size == 'large') {
-          largeCupItems.add(itemData);
-        }
-      }
-
-      // Get existing data with proper type casting
-      final Map<String, dynamic> existingData =
-          existingDoc.exists
-              ? Map<String, dynamic>.from(
-                existingDoc.data() as Map<dynamic, dynamic>,
-              )
-              : {};
-
-      // Process counts and categories together
-      Map<String, int> silogCounts = {};
-      Map<String, String> silogCategories = {};
-      _processItemsWithCategories(
-        existingData,
-        'silogCount',
-        'silogCategories',
-        silogItems,
-        silogCounts,
-        silogCategories,
-      );
-
-      Map<String, int> snackCounts = {};
-      Map<String, String> snackCategories = {};
-      _processItemsWithCategories(
-        existingData,
-        'snackCount',
-        'snackCategories',
-        snackItems,
-        snackCounts,
-        snackCategories,
-      );
-
-      Map<String, int> regularCupCounts = {};
-      Map<String, String> regularCupCategories = {};
-      _processItemsWithCategories(
-        existingData,
-        'regularCupCount',
-        'regularCupCategories',
-        regularCupItems,
-        regularCupCounts,
-        regularCupCategories,
-      );
-
-      Map<String, int> largeCupCounts = {};
-      Map<String, String> largeCupCategories = {};
-      _processItemsWithCategories(
-        existingData,
-        'largeCupCount',
-        'largeCupCategories',
-        largeCupItems,
-        largeCupCounts,
-        largeCupCategories,
-      );
-
-      // Prepare data to update
-      final data = {
-        'totalSales': (existingData['totalSales'] ?? 0) + sum,
-        'silogCount': silogCounts,
-        'snackCount': snackCounts,
-        'regularCupCount': regularCupCounts,
-        'largeCupCount': largeCupCounts,
-        'silogCategories': silogCategories,
-        'snackCategories': snackCategories,
-        'regularCupCategories': regularCupCategories,
-        'largeCupCategories': largeCupCategories,
-        'timestamp': FieldValue.serverTimestamp(),
-        'date': today,
+      Map<String, dynamic> itemData = {
+        'name': productName,
+        'category': category,
       };
 
-      // Update or insert the data
-      await (existingDoc.exists
-          ? inventoryDocRef.update(data)
-          : inventoryDocRef.set({...data, 'username': widget.username}));
+      // Add items to lists - allowing duplicates
+      if (name.contains('silog'))
+        silogItems.add(itemData);
+      else if (RegExp(r'beef|cheese|egg|stick|fries|combo').hasMatch(name))
+        snackItems.add(itemData);
 
-      // Delete the processed sales data
-      for (var doc in snapshot.docs) {
-        await doc.reference.delete();
+      if (size == 'regular') {
+        regularCupItems.add(itemData);
+      } else if (size == 'large') {
+        largeCupItems.add(itemData);
       }
-
-      // Fetch the updated sales data
-      await fetchSalesData();
-    } catch (e) {
-      print('Error: $e');
-    } finally {
-      // Dismiss loading dialog
-      Navigator.pop(context);
-      setState(() {
-        isLoading = false;
-      });
     }
-  }
 
+    // Get existing data with proper type casting
+    final Map<String, dynamic> existingData = existingDoc.exists
+        ? Map<String, dynamic>.from(
+            existingDoc.data() as Map<dynamic, dynamic>,
+          )
+        : {};
+
+    // Process existing payment method data
+    Map<String, double> existingPaymentTotals = {};
+    if (existingData.containsKey('paymentMethodTotals')) {
+      final existing = existingData['paymentMethodTotals'];
+      if (existing is Map) {
+        existing.forEach((key, value) {
+          existingPaymentTotals[key.toString()] = 
+              (value is num) ? value.toDouble() : 0.0;
+        });
+      }
+    }
+
+    // Merge payment method totals
+    paymentMethodTotals.forEach((method, amount) {
+      existingPaymentTotals[method] = 
+          (existingPaymentTotals[method] ?? 0.0) + amount;
+    });
+
+    // Process counts and categories together
+    Map<String, int> silogCounts = {};
+    Map<String, String> silogCategories = {};
+    _processItemsWithCategories(
+      existingData,
+      'silogCount',
+      'silogCategories',
+      silogItems,
+      silogCounts,
+      silogCategories,
+    );
+
+    Map<String, int> snackCounts = {};
+    Map<String, String> snackCategories = {};
+    _processItemsWithCategories(
+      existingData,
+      'snackCount',
+      'snackCategories',
+      snackItems,
+      snackCounts,
+      snackCategories,
+    );
+
+    Map<String, int> regularCupCounts = {};
+    Map<String, String> regularCupCategories = {};
+    _processItemsWithCategories(
+      existingData,
+      'regularCupCount',
+      'regularCupCategories',
+      regularCupItems,
+      regularCupCounts,
+      regularCupCategories,
+    );
+
+    Map<String, int> largeCupCounts = {};
+    Map<String, String> largeCupCategories = {};
+    _processItemsWithCategories(
+      existingData,
+      'largeCupCount',
+      'largeCupCategories',
+      largeCupItems,
+      largeCupCounts,
+      largeCupCategories,
+    );
+
+    // Prepare data to update (including payment method data)
+    final data = {
+      'totalSales': (existingData['totalSales'] ?? 0) + sum,
+      'silogCount': silogCounts,
+      'snackCount': snackCounts,
+      'regularCupCount': regularCupCounts,
+      'largeCupCount': largeCupCounts,
+      'silogCategories': silogCategories,
+      'snackCategories': snackCategories,
+      'regularCupCategories': regularCupCategories,
+      'largeCupCategories': largeCupCategories,
+      'paymentMethodTotals': existingPaymentTotals, // Add payment method data
+      'timestamp': FieldValue.serverTimestamp(),
+      'date': today,
+    };
+
+    // Update or insert the data
+    await (existingDoc.exists
+        ? inventoryDocRef.update(data)
+        : inventoryDocRef.set({...data, 'username': widget.username}));
+
+    // Delete the processed sales data
+    for (var doc in snapshot.docs) {
+      await doc.reference.delete();
+    }
+
+    // Fetch the updated sales data
+    await fetchSalesData();
+  } catch (e) {
+    print('Error: $e');
+  } finally {
+    // Dismiss loading dialog
+    Navigator.pop(context);
+    setState(() {
+      isLoading = false;
+    });
+  }
+}
   // Add this helper method to your _SalesPageState class
   void _processItemsWithCategories(
     Map<String, dynamic> existingData,
@@ -461,15 +486,28 @@ class _SalesPageState extends State<SalesPage> {
     );
   }
 
-  Widget buildSaleItem(Map<String, dynamic> item, int index) {
+ Widget buildSaleItem(Map<String, dynamic> item, int index) {
   final category = (item['category'] ?? '').toString();
   final productName = item['productName'] ?? 'Unknown';
   final size = item['size'] ?? 'N/A';
   final addOns = List<String>.from(item['addOns'] ?? []);
   final amount = item['amount']?.toDouble() ?? 0.0;
+  final paymentMethod = item['paymentMethod'] ?? 'N/A';
 
   // Don't show size if category is silog or snack
   final showSize = category.toLowerCase() != 'silog' && category.toLowerCase() != 'snack';
+
+  // Get payment method color
+  Color getPaymentColor() {
+    switch (paymentMethod.toLowerCase()) {
+      case 'cash':
+        return const Color(0xFF2ECC71);
+      case 'gcash':
+        return const Color(0xFF3498DB);
+      default:
+        return const Color(0xFF95A5A6);
+    }
+  }
 
   return Dismissible(
     key: Key(docIds[index]),
@@ -481,62 +519,228 @@ class _SalesPageState extends State<SalesPage> {
     ),
     background: swipeBackground(isLeft: true),
     secondaryBackground: swipeBackground(isLeft: false),
-    child: Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 4,
+    child: Container(
       margin: const EdgeInsets.symmetric(vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+            spreadRadius: 0,
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+            spreadRadius: 0,
+          ),
+        ],
+        border: Border.all(
+          color: Colors.grey.shade100,
+          width: 1,
+        ),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Payment method with modern styling
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: getPaymentColor().withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: getPaymentColor().withOpacity(0.2),
+                  width: 1,
+                ),
+              ),
+              child: Text(
+                'Payment: $paymentMethod',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: getPaymentColor(),
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // Product info section
             showSize ? Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                 Text(
+                // Category and product name
+                Text(
                   '$category | $productName',
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF2C3E50),
+                    height: 1.3,
+                  ),
                 ),
+                
+                const SizedBox(height: 12),
+                
+                // Size and amount row
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text('Size: $size'),
-                    Text(
-                      "₱${amount.toStringAsFixed(2)}",
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green,
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8F9FA),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: const Color(0xFFE9ECEF),
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        'Size: $size',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF6C757D),
+                        ),
+                      ),
+                    ),
+                    
+                    // Modern price display
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            const Color(0xFF27AE60),
+                            const Color(0xFF2ECC71),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF27AE60).withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Text(
+                        "₱${amount.toStringAsFixed(2)}",
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ],
                 ),
               ],
-            ) :Row(
+            ) : Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Text(
-                  '$category | $productName',
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                // Category and product name (flexible to take available space)
+                Expanded(
+                  child: Text(
+                    '$category | $productName',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF2C3E50),
+                      height: 1.3,
+                    ),
+                  ),
                 ),
-                Text(
-                  "₱${amount.toStringAsFixed(2)}",
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green,
+                
+                const SizedBox(width: 12),
+                
+                // Modern price display
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        const Color(0xFF27AE60),
+                        const Color(0xFF2ECC71),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF27AE60).withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    "₱${amount.toStringAsFixed(2)}",
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ],
             ),
+            
+            // Add-ons section with modern styling
             if (addOns.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              const Text(
-                "Add-ons:",
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
-              ),
-              ...addOns.map(
-                (addOn) => Text("- $addOn", style: const TextStyle(fontSize: 15)),
+              const SizedBox(height: 16),
+              
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF8E1),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: const Color(0xFFFFE082),
+                    width: 1,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "Add-ons:",
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFFE65100),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ...addOns.map(
+                      (addOn) => Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text(
+                          "- $addOn",
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFFEF6C00),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ],
@@ -545,7 +749,6 @@ class _SalesPageState extends State<SalesPage> {
     ),
   );
 }
-
 
   Widget swipeBackground({required bool isLeft}) {
     return Container(

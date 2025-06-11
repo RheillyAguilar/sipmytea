@@ -1,3 +1,5 @@
+import 'package:sipmytea/cart_data.dart';
+
 class CartItem {
   final String productName;
   final String size;
@@ -14,4 +16,8 @@ class CartItem {
     required this.totalPrice,
     required this.category, // ✅ Include in constructor
   });
+}
+
+double get totalCartPrice {
+  return cartItems.fold(0.0, (sum, item) => sum + item.totalPrice);
 }

@@ -190,6 +190,8 @@ Future<void> _addUserToMonthlySale(
     final String formattedDate = DateFormat('MMMM d yyyy').format(parsedDate);
     final String monthKey = DateFormat('MMMM yyyy').format(parsedDate);
     final double netSales = (data['netSales'] ?? 0).toDouble();
+    final int cashTotal = data['cashTotal'] ?? 0;
+    final int gcashTotal = data['gcashTotal'] ?? 0;
 
     // Handle expenses data properly
     Map<String, dynamic> formattedExpenses = {};
@@ -219,6 +221,8 @@ Future<void> _addUserToMonthlySale(
       'amount': netSales,
       'totalSales': data['totalSales'] ?? 0,
       'netSales': netSales,
+      'cashTotal': cashTotal,
+      'gcashTotal': gcashTotal,
       'date': selectedDate,
       'formattedDate': formattedDate,
 
@@ -258,7 +262,7 @@ Future<void> _addUserToMonthlySale(
       final List<dynamic> existingUserDetails = existingData['userDetails'] ?? [];
       final Map<String, dynamic> existingMonthData = existingData['monthData'] ?? {};
       
-      // Calculate updated month totals
+      // Calculate updated month totals including cash and gcash
       Map<String, dynamic> updatedMonthData = {
         'silogTotal': (existingMonthData['silogTotal'] ?? 0) + (data['silogCount'] ?? 0),
         'snackTotal': (existingMonthData['snackTotal'] ?? 0) + (data['snackCount'] ?? 0),
@@ -266,6 +270,8 @@ Future<void> _addUserToMonthlySale(
         'largeCupTotal': (existingMonthData['largeCupTotal'] ?? 0) + (data['largeCupCount'] ?? 0),
         'totalSales': (existingMonthData['totalSales'] ?? 0) + (data['totalSales'] ?? 0),
         'netSales': (existingMonthData['netSales'] ?? 0) + netSales,
+        'cashTotal': (existingMonthData['cashTotal'] ?? 0) + cashTotal,
+        'gcashTotal': (existingMonthData['gcashTotal'] ?? 0) + gcashTotal,
       };
 
       // Check if this user already exists in the monthly data
@@ -285,6 +291,8 @@ Future<void> _addUserToMonthlySale(
         existingUserData['amount'] = (existingUserData['amount'] ?? 0) + netSales;
         existingUserData['totalSales'] = (existingUserData['totalSales'] ?? 0) + (data['totalSales'] ?? 0);
         existingUserData['netSales'] = (existingUserData['netSales'] ?? 0) + netSales;
+        existingUserData['cashTotal'] = (existingUserData['cashTotal'] ?? 0) + cashTotal;
+        existingUserData['gcashTotal'] = (existingUserData['gcashTotal'] ?? 0) + gcashTotal;
         
         // Update product counts
         existingUserData['silogCount'] = (existingUserData['silogCount'] ?? 0) + (data['silogCount'] ?? 0);
@@ -332,7 +340,7 @@ Future<void> _addUserToMonthlySale(
         'lastUpdated': FieldValue.serverTimestamp(),
       });
     } else {
-      // Create new document with all details
+      // Create new document with all details including cash and gcash totals
       batch.set(docRef, {
         'amount': netSales,
         'date': monthKey,
@@ -347,6 +355,8 @@ Future<void> _addUserToMonthlySale(
           'largeCupTotal': data['largeCupCount'] ?? 0,
           'totalSales': data['totalSales'] ?? 0,
           'netSales': netSales,
+          'cashTotal': cashTotal,
+          'gcashTotal': gcashTotal,
         },
       });
     }
@@ -483,124 +493,193 @@ void _mergeDetailedData(Map<String, dynamic> existingData, Map<String, dynamic> 
     return _buildUserSummaryCard(widget.username, dailyData!);
   }
 
-  Widget _buildUserSummaryCard(String username, Map<String, dynamic> data) {
-    // Extract counts from the current data
-    final int totalSales = data['totalSales'] ?? 0;
-    final int netSales = data['netSales'] ?? 0;
+Widget _buildUserSummaryCard(String username, Map<String, dynamic> data) {
+  // Extract counts from the current data
+  final int totalSales = data['totalSales'] ?? 0;
+  final int netSales = data['netSales'] ?? 0;
+  
+  // Extract cash and GCash totals
+  final int cashTotal = data['cashTotal'] ?? 0;
+  final int gcashTotal = data['gcashTotal'] ?? 0;
 
-    // Set these variables for use in the category cards
-    int silogCountCard = data['silogCount'] ?? 0;
-    int snackCountCard = data['snackCount'] ?? 0;
-    int regularCupCountCard = data['regularCupCount'] ?? 0;
-    int largeCupCountCard = data['largeCupCount'] ?? 0;
+  // Set these variables for use in the category cards
+  int silogCountCard = data['silogCount'] ?? 0;
+  int snackCountCard = data['snackCount'] ?? 0;
+  int regularCupCountCard = data['regularCupCount'] ?? 0;
+  int largeCupCountCard = data['largeCupCount'] ?? 0;
 
-    final List expenses = data['expenses'] ?? [];
+  final List expenses = data['expenses'] ?? [];
 
-    final double totalExpenses = expenses.fold(
-      0.0,
-      (sum, e) => sum + (e['amount'] ?? 0),
-    );
+  final double totalExpenses = expenses.fold(
+    0.0,
+    (sum, e) => sum + (e['amount'] ?? 0),
+  );
 
-    return Card(
-      elevation: 4,
-      margin: const EdgeInsets.symmetric(vertical: 10),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              username,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 5),
-            Text(
-              DateFormat('MMMM d, yyyy').format(DateTime.parse(selectedDate)),
-              style: const TextStyle(fontSize: 16, color: Colors.grey),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              'Total Sales: ₱$totalSales',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildCategoryCard(
-                    'Silog',
-                    Colors.blue,
-                    silogCountCard,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _buildCategoryCard(
-                    'Snacks',
-                    Colors.orange,
-                    snackCountCard,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildCategoryCard(
-                    'Large Cup',
-                    Colors.green,
-                    largeCupCountCard,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _buildCategoryCard(
-                    'Regular Cup',
-                    Colors.red,
-                    regularCupCountCard,
-                  ),
-                ),
-              ],
-            ),
-            if (expenses.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              _buildExpenseCard(expenses, totalExpenses),
+  return Card(
+    elevation: 4,
+    margin: const EdgeInsets.symmetric(vertical: 10),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            username,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            DateFormat('MMMM d, yyyy').format(DateTime.parse(selectedDate)),
+            style: const TextStyle(fontSize: 16, color: Colors.grey),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Total Sales: ₱$totalSales',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 10),
+          
+          // Cash and GCash Display
+          Row(
+            children: [
+              Expanded(
+                child: _buildPaymentMethodCard('Cash', cashTotal, Icons.money, Colors.green),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _buildPaymentMethodCard('Gcash', gcashTotal, Icons.phone_android, Colors.blue),
+              ),
             ],
-            const SizedBox(height: 10),
-            Text(
-              'Daily Sales: ₱${netSales.toStringAsFixed(2)}',
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.green,
-              ),
-            ),
-            if (widget.isAdmin)
-              Padding(
-                padding: const EdgeInsets.only(top: 12.0),
-                child: ElevatedButton(
-                  onPressed: () => _addUserToMonthlySale(username, data),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4B8673),
-                    minimumSize: const Size(double.infinity, 45),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: const Text(
-                    'Add to Monthly Sales',
-                    style: TextStyle(color: Colors.white, fontSize: 16),
-                  ),
+          ),
+          const SizedBox(height: 10),
+          
+          Row(
+            children: [
+              Expanded(
+                child: _buildCategoryCard(
+                  'Silog',
+                  Color(0xffb19985),
+                  silogCountCard,
                 ),
               ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _buildCategoryCard(
+                  'Snacks',
+                  Colors.orange,
+                  snackCountCard,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _buildCategoryCard(
+                  'Large Cup',
+                  Color(0XFF944547),
+                  largeCupCountCard,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _buildCategoryCard(
+                  'Regular Cup',
+                  Color(0xff7b679a),
+                  regularCupCountCard,
+                ),
+              ),
+            ],
+          ),
+          if (expenses.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _buildExpenseCard(expenses, totalExpenses),
           ],
-        ),
+          const SizedBox(height: 10),
+          Text(
+            'Daily Sales: ₱${netSales.toStringAsFixed(2)}',
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.green,
+            ),
+          ),
+          if (widget.isAdmin)
+            Padding(
+              padding: const EdgeInsets.only(top: 12.0),
+              child: ElevatedButton(
+                onPressed: () => _addUserToMonthlySale(username, data),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4B8673),
+                  minimumSize: const Size(double.infinity, 45),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text(
+                  'Add to Monthly Sales',
+                  style: TextStyle(color: Colors.white, fontSize: 16),
+                ),
+              ),
+            ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
 
+// Add this new method to build payment method cards
+Widget _buildPaymentMethodCard(String title, int amount, IconData icon, Color color) {
+  return Container(
+    padding: const EdgeInsets.all(16.0),
+    decoration: BoxDecoration(
+      color: color,
+      borderRadius: BorderRadius.circular(12.0),
+    ),
+    child: Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8.0),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8.0),
+          ),
+          child: Icon(
+            icon,
+            color: Colors.white,
+            size: 28,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '₱$amount',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
   Widget _buildCategoryCard(String title, Color color, int count) {
     return InkWell(
       // Changed from GestureDetector to InkWell for better tap feedback

@@ -179,6 +179,8 @@ Future<void> _downloadPdf() async {
     'snackTotal': 0,
     'netSales': 0.0,
     'totalSales': 0.0,
+    'cashTotal': 0.0,    // Add cash total
+    'gcashTotal': 0.0,   // Add gcash total
     'largeCupCategories': <String, Map<String, int>>{},
     'regularCupCategories': <String, Map<String, int>>{},
     'silogCategories': <String, Map<String, int>>{},
@@ -211,6 +213,13 @@ Future<void> _downloadPdf() async {
             : 0.0;
         consolidatedData['totalSales'] += (monthData['totalSales'] is num) 
             ? (monthData['totalSales'] as num).toDouble() 
+            : 0.0;
+        // Add cash and gcash totals
+        consolidatedData['cashTotal'] += (monthData['cashTotal'] is num) 
+            ? (monthData['cashTotal'] as num).toDouble() 
+            : 0.0;
+        consolidatedData['gcashTotal'] += (monthData['gcashTotal'] is num) 
+            ? (monthData['gcashTotal'] as num).toDouble() 
             : 0.0;
       }
     }
@@ -282,6 +291,12 @@ Future<void> _downloadPdf() async {
         pw.SizedBox(height: 10),
         _buildPdfSummaryTable(consolidatedData),
         pw.SizedBox(height: 20),
+
+        // Payment Methods Section
+        pw.Text('PAYMENT METHODS', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+        pw.SizedBox(height: 10),
+        _buildPdfPaymentMethodsTable(consolidatedData),
+        pw.SizedBox(height: 20),
         
         // Large Cup Categories
         pw.Text('PRODUCT BREAKDOWN', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
@@ -340,7 +355,7 @@ Future<void> _downloadPdf() async {
           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
           children: [
             pw.Text('Total Sales:', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
-            pw.Text('${consolidatedData['totalSales'].toStringAsFixed(2)}', 
+            pw.Text('₱${consolidatedData['totalSales'].toStringAsFixed(2)}', 
                    style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
           ],
         ),
@@ -348,7 +363,7 @@ Future<void> _downloadPdf() async {
           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
           children: [
             pw.Text('Total Expenses:', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
-            pw.Text('${totalExpenses.toStringAsFixed(2)}', 
+            pw.Text('₱${totalExpenses.toStringAsFixed(2)}', 
                    style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
           ],
         ),
@@ -358,7 +373,7 @@ Future<void> _downloadPdf() async {
           children: [
             pw.Text('Net Profit:', 
                    style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
-            pw.Text('${(consolidatedData['totalSales'] - totalExpenses).toStringAsFixed(2)}', 
+            pw.Text('₱${(consolidatedData['totalSales'] - totalExpenses).toStringAsFixed(2)}', 
                    style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
           ],
         ),
@@ -367,6 +382,49 @@ Future<void> _downloadPdf() async {
   );
 
   await Printing.layoutPdf(onLayout: (format) async => pdf.save());
+}
+
+// New helper method to build payment methods table
+pw.Widget _buildPdfPaymentMethodsTable(Map<String, dynamic> data) {
+  double cashTotal = data['cashTotal'] ?? 0.0;
+  double gcashTotal = data['gcashTotal'] ?? 0.0;
+  double totalPayments = cashTotal + gcashTotal;
+  
+  return pw.Table(
+    border: pw.TableBorder.all(color: PdfColors.grey),
+    children: [
+      pw.TableRow(
+        decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+        children: [
+          _pdfTableCell('Payment Method', isHeader: true),
+          _pdfTableCell('Amount', isHeader: true),
+          _pdfTableCell('Percentage', isHeader: true),
+        ],
+      ),
+      pw.TableRow(
+        children: [
+          _pdfTableCell('Cash'),
+          _pdfTableCell('${cashTotal.toStringAsFixed(2)}'),
+          _pdfTableCell('${totalPayments > 0 ? ((cashTotal / totalPayments) * 100).toStringAsFixed(1) : "0.0"}%'),
+        ],
+      ),
+      pw.TableRow(
+        children: [
+          _pdfTableCell('Gcash'),
+          _pdfTableCell('${gcashTotal.toStringAsFixed(2)}'),
+          _pdfTableCell('${totalPayments > 0 ? ((gcashTotal / totalPayments) * 100).toStringAsFixed(1) : "0.0"}%'),
+        ],
+      ),
+      pw.TableRow(
+        decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+        children: [
+          _pdfTableCell('Total', isHeader: true),
+          _pdfTableCell('${totalPayments.toStringAsFixed(2)}', isHeader: true),
+          _pdfTableCell('100.0%', isHeader: true),
+        ],
+      ),
+    ],
+  );
 }
 
 // Helper method to process detailed items with proper display names
