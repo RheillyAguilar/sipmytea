@@ -671,7 +671,7 @@ class _CartPageState extends State<CartPage> {
     final creampuffOverloadMap = {
       'honeydew': 'honeydew', 'taro': 'taro', 'matcha': 'matcha',
       'dark chocolate': 'dark chocolate', 'chocolate': 'chocolate',
-      'cookies and cream': 'cookies and cream', 'chocomalt': 'chocomalt',
+      'cookies and cream': 'oreo crumbs', 'chocomalt': 'chocomalt',
     };
 
     for (final entry in creampuffOverloadMap.entries) {
