@@ -355,7 +355,7 @@ Future<void> _downloadPdf() async {
           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
           children: [
             pw.Text('Total Sales:', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
-            pw.Text('₱${consolidatedData['totalSales'].toStringAsFixed(2)}', 
+            pw.Text('${consolidatedData['totalSales'].toStringAsFixed(2)}', 
                    style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
           ],
         ),
@@ -363,7 +363,7 @@ Future<void> _downloadPdf() async {
           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
           children: [
             pw.Text('Total Expenses:', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
-            pw.Text('₱${totalExpenses.toStringAsFixed(2)}', 
+            pw.Text('${totalExpenses.toStringAsFixed(2)}', 
                    style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
           ],
         ),
@@ -373,7 +373,7 @@ Future<void> _downloadPdf() async {
           children: [
             pw.Text('Net Profit:', 
                    style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
-            pw.Text('₱${(consolidatedData['totalSales'] - totalExpenses).toStringAsFixed(2)}', 
+            pw.Text('${(consolidatedData['totalSales'] - totalExpenses).toStringAsFixed(2)}', 
                    style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
           ],
         ),
@@ -794,10 +794,25 @@ pw.Widget _pdfTableCell(String text, {bool isHeader = false}) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Monthly Sales'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.calendar_today),
-            onPressed: _pickMonth,
+       actions: [
+          Container(
+            margin: const EdgeInsets.only(right: 16),
+            child: Material(
+              color: const Color(0xFF4B8673).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: _pickMonth,
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  child: Icon(
+                    Iconsax.calendar,
+                    color: const Color(0xFF4B8673),
+                    size: 20,
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
       ),

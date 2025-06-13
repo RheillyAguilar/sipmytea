@@ -486,13 +486,18 @@ Future<void> addToInventorySales() async {
     );
   }
 
- Widget buildSaleItem(Map<String, dynamic> item, int index) {
+Widget buildSaleItem(Map<String, dynamic> item, int index) {
   final category = (item['category'] ?? '').toString();
   final productName = item['productName'] ?? 'Unknown';
   final size = item['size'] ?? 'N/A';
   final addOns = List<String>.from(item['addOns'] ?? []);
   final amount = item['amount']?.toDouble() ?? 0.0;
   final paymentMethod = item['paymentMethod'] ?? 'N/A';
+  
+  // Capitalize the first letter of payment method
+  final capitalizedPaymentMethod = paymentMethod.isNotEmpty 
+      ? paymentMethod[0].toUpperCase() + paymentMethod.substring(1).toLowerCase()
+      : paymentMethod;
 
   // Don't show size if category is silog or snack
   final showSize = category.toLowerCase() != 'silog' && category.toLowerCase() != 'snack';
@@ -544,7 +549,7 @@ Future<void> addToInventorySales() async {
         ),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(15),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -560,7 +565,7 @@ Future<void> addToInventorySales() async {
                 ),
               ),
               child: Text(
-                'Payment: $paymentMethod',
+                'Payment: $capitalizedPaymentMethod', // Use the capitalized version here
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -750,6 +755,7 @@ Future<void> addToInventorySales() async {
   );
 }
 
+
   Widget swipeBackground({required bool isLeft}) {
     return Container(
       color: Colors.red,
@@ -765,10 +771,25 @@ Future<void> addToInventorySales() async {
       backgroundColor: const Color(0xFFF9F9F9),
       appBar: AppBar(
         title: const Text('Sales'),
-        actions: [
-          IconButton(
-            onPressed: _pickDate,
-            icon: const Icon(Icons.calendar_today),
+               actions: [
+          Container(
+            margin: const EdgeInsets.only(right: 16),
+            child: Material(
+              color: const Color(0xFF4B8673).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: _pickDate,
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  child: Icon(
+                    Iconsax.calendar,
+                    color: const Color(0xFF4B8673),
+                    size: 20,
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
       ),

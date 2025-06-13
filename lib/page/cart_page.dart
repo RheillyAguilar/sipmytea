@@ -102,7 +102,7 @@ class _CartPageState extends State<CartPage> {
     }
   }
 
-  // OPTIMIZED: Pre-load frequently accessed documents
+// OPTIMIZED: Pre-load frequently accessed documents
   Future<void> _preloadStockDocuments() async {
     final futures = <Future<DocumentSnapshot>>[];
 
@@ -124,6 +124,7 @@ class _CartPageState extends State<CartPage> {
       'chocomalt',
       'oreo crumbs',
       'yakult',
+      'fresh milk', // Added fresh milk to common stock items
     ];
 
     // Add flavor-specific items based on cart contents
@@ -158,7 +159,6 @@ class _CartPageState extends State<CartPage> {
       }
     }
   }
-
   // OPTIMIZED: Get all flavor items for a product
   Set<String> _getFlavorItemsForProduct(CartItem item) {
     final items = <String>{};
@@ -992,13 +992,23 @@ class _CartPageState extends State<CartPage> {
     return result;
   }
 
-  Map<String, int> _getSmoothieDeductions(
+Map<String, int> _getSmoothieDeductions(
     String category,
     String name,
     String size,
   ) {
     if (category != 'smoothies') return {};
 
+    final result = <String, int>{};
+    
+    // Add fresh milk deduction for all smoothies
+    if (size == 'regular') {
+      result['fresh milk'] = 50;
+    } else if (size == 'large') {
+      result['fresh milk'] = 100;
+    }
+
+    // Add flavor-specific deductions
     final smoothieMap = {
       'chocolate': 'chocolate',
       'strawberry': 'strawberry',
@@ -1011,10 +1021,12 @@ class _CartPageState extends State<CartPage> {
 
     for (final entry in smoothieMap.entries) {
       if (name.contains(entry.key)) {
-        return {entry.value: size == 'regular' ? 40 : 50};
+        result[entry.value] = size == 'regular' ? 40 : 50;
+        break;
       }
     }
-    return {};
+    
+    return result;
   }
 
   Map<String, int> _getFreshTeaDeduction(
@@ -1040,13 +1052,25 @@ class _CartPageState extends State<CartPage> {
     return {};
   }
 
-  Map<String, int> _getCreampuffDeduction(
+   Map<String, int> _getCreampuffDeduction(
     String category,
     String name,
     String size,
   ) {
     if (category != 'creampuff overload') return {};
 
+    final result = <String, int>{};
+    
+    // Check for specific items that need fresh milk deduction
+    final freshMilkItems = ['taro', 'honeydew', 'matcha', 'dark chocolate'];
+    final needsFreshMilk = freshMilkItems.any((item) => name.toLowerCase().contains(item));
+    
+    if (needsFreshMilk) {
+      // These items only come in large size (100ml fresh milk)
+      result['fresh milk'] = 100;
+    }
+
+    // Add flavor-specific deductions
     final creampuffOverloadMap = {
       'honeydew': 'honeydew',
       'taro': 'taro',
@@ -1059,10 +1083,12 @@ class _CartPageState extends State<CartPage> {
 
     for (final entry in creampuffOverloadMap.entries) {
       if (name.contains(entry.key)) {
-        return {entry.value: 20};
+        result[entry.value] = 20;
+        break;
       }
     }
-    return {};
+    
+    return result;
   }
 
   Map<String, int> _getClassicDeduction(
