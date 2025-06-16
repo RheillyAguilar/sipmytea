@@ -34,7 +34,8 @@ class AddonSelectionState extends State<AddonSelection> {
   @override
   void initState() {
     super.initState();
-    _selectedAddOns = Set.from(widget.selectedAddOns);
+    // Initialize with empty set instead of using widget.selectedAddOns to fix the persistence issue
+    _selectedAddOns = <String>{};
     _addOnCategory = widget.selectedItem['addOnCategory'] ?? 'Add-ons';
     
     // Check if this is a Silog item and handle it immediately
@@ -42,8 +43,10 @@ class AddonSelectionState extends State<AddonSelection> {
     if (category == "Silog") {
       // For Silog items, skip addon selection and go directly to confirmation
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        widget.onAddOnsSelected(_selectedAddOns);
-        _showFinalConfirmationDialog(context, "Customer", "N/A");
+        if (mounted) {
+          widget.onAddOnsSelected(_selectedAddOns);
+          _showFinalConfirmationDialog(context, "Ma'am/Sir", "N/A");
+        }
       });
     } else {
       _loadStock();
@@ -59,9 +62,11 @@ class AddonSelectionState extends State<AddonSelection> {
   Future<void> _loadStock() async {
     if (!_mounted) return;
     
-    setState(() {
-      _isLoading = true;
-    });
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
 
     try {
       QuerySnapshot stockSnapshot = await firestore.collection('stock').get();
@@ -94,7 +99,7 @@ class AddonSelectionState extends State<AddonSelection> {
         }
       }
 
-      if (_mounted) {
+      if (_mounted && mounted) {
         setState(() {
           _addOnStock = stockMap;
           _isLoading = false;
@@ -102,7 +107,7 @@ class AddonSelectionState extends State<AddonSelection> {
       }
     } catch (e) {
       print('Error loading stock: $e');
-      if (_mounted) {
+      if (_mounted && mounted) {
         setState(() {
           _isLoading = false;
         });
@@ -146,7 +151,7 @@ class AddonSelectionState extends State<AddonSelection> {
     // Print footer
     printer.printNewLine();
     printer.printCustom("Thank you, $customerName", 1, 0);
-    printer.printCustom("Please buy again", 1, 0);
+    printer.printCustom("Come back again soon!", 1, 0);
     
     // Cut the paper (if supported by printer)
     printer.paperCut();
@@ -156,6 +161,8 @@ class AddonSelectionState extends State<AddonSelection> {
 }
 
   void _showFinalConfirmationDialog(BuildContext context, String name, String? sugarLevel) {
+    if (!mounted) return;
+    
     String productName = widget.selectedItem["name"] ?? "Unknown";
     String category = widget.selectedItem["category"] ?? "";
     String? size = widget.selectedItem["size"];
@@ -183,135 +190,265 @@ class AddonSelectionState extends State<AddonSelection> {
 
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (BuildContext context) {
         return Dialog(
           backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(24),
           ),
-          child: Padding(
+          child: Container(
             padding: const EdgeInsets.all(24),
+            width: MediaQuery.of(context).size.width * 0.9,
+            constraints: const BoxConstraints(
+              maxWidth: 480,
+              maxHeight: 700,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  "Order Confirmation",
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 16),
-                Text("$productName", style: const TextStyle(fontSize: 18)),
-                if (size != null && size != "N/A" && category != "Silog" && (sugarLevel != null && sugarLevel != 'N/A' && category != "Snack" && category != "Silog"))
-                  Text("$size | $sugarLevel", style: const TextStyle(fontSize: 18)),
-                if (_selectedAddOns.isNotEmpty && category != "Silog") ...[
-                  const SizedBox(height: 10),
-                  const Text(
-                    "Add-ons:",
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                // Header
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF4B8673), Color(0xFF5A9B85)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  for (String addOn in _selectedAddOns)
-                    Text("- $addOn", style: const TextStyle(fontSize: 16)),
-                ],
-                const SizedBox(height: 12),
-                Text(
-                  "Total Price: ₱$totalPrice",
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  "Thank you $name, please buy again!",
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontStyle: FontStyle.italic,
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.receipt_long,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          "Order Confirmation",
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    const SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: () async {
-                        List<BluetoothDevice> devices = await printer.getBondedDevices();
-
-                        if (devices.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text("No printers found. Order confirmed without printing.")),
-                          );
-                          _completeOrderWithoutPrinting(productName, size ?? "N/A", sugarLevel, category, totalPrice);
-                          return;
-                        }
-
-                        showDialog(
-                          context: context,
-                          builder: (BuildContext printerContext) {
-                            return AlertDialog(
-                              title: const Text("Select Printer"),
-                              content: SizedBox(
-                                height: 300,
-                                width: 300,
-                                child: ListView.builder(
-                                  itemCount: devices.length,
-                                  itemBuilder: (context, index) {
-                                    final device = devices[index];
-                                    return ListTile(
-                                      title: Text(device.name ?? "Unknown"),
-                                      subtitle: Text(device.address ?? ""),
-                                      onTap: () async {
-                                        Navigator.of(printerContext).pop();
-
-                                        bool? isConnected = await printer.isConnected;
-
-                                        try {
-                                          if (isConnected != true) {
-                                            await printer.connect(device);
-                                          }
-
-                                          await printReceipt(
-                                            productName: productName,
-                                            size: size ?? "N/A",
-                                            addOns: _selectedAddOns.toList(),
-                                            customerName: name,
-                                            sugarLevel: sugarLevel,
-                                            category: category,
-                                            totalPrice: totalPrice,
-                                          );
-
-                                          _completeOrderWithPrinting(productName, size ?? "N/A", sugarLevel, category, totalPrice);
-                                        } catch (e) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(
-                                              content: Text("Failed to connect: $e"),
-                                            ),
-                                          );
-                                          _completeOrderWithoutPrinting(productName, size ?? "N/A", sugarLevel, category, totalPrice);
-                                        }
-                                      },
-                                    );
-                                  },
-                                ),
+                
+                // Product Details
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        productName,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF2D3748),
+                        ),
+                      ),
+                      if (size != null && size != "N/A" && category != "Silog" && (sugarLevel != null && sugarLevel != 'N/A' && category != "Snack" && category != "Silog")) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF4B8673).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            "$size • $sugarLevel",
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Color(0xFF4B8673),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                      if (_selectedAddOns.isNotEmpty && category != "Silog") ...[
+                        const SizedBox(height: 16),
+                        const Text(
+                          "Add-ons:",
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF4A5568),
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          children: _selectedAddOns.map((addOn) => Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF4B8673).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              addOn,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF4B8673),
+                                fontWeight: FontWeight.w500,
                               ),
-                            );
-                          },
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Color(0xFF4B8673),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          side: BorderSide.none
-                        )
-                      ),
-                      child: const Text("Print Receipt", style: TextStyle(color: Colors.white),),
+                            ),
+                          )).toList(),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                
+                // Total Price
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        const Color(0xFF4B8673).withOpacity(0.1),
+                        const Color(0xFF4B8673).withOpacity(0.05),
+                      ],
                     ),
-                    TextButton(
-                      onPressed: () {
-                        _completeOrderWithoutPrinting(productName, size ?? "N/A", sugarLevel, category, totalPrice);
-                      },
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.grey[700]
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        "Total:",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF2D3748),
+                        ),
                       ),
-                      child: const Text("Without Printing"),
+                      Text(
+                        "₱$totalPrice",
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF4B8673),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                // Thank you message
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF5F5),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.favorite,
+                        color: Color(0xFFE53E3E),
+                        size: 16,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          "Thank you $name! Come back soon!",
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFFE53E3E),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                
+                // Action Buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          _completeOrderWithoutPrinting(productName, size ?? "N/A", sugarLevel, category, totalPrice);
+                        },
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          side: const BorderSide(color: Color(0xFFE2E8F0)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          "Skip Print",
+                          style: TextStyle(
+                            color: Color(0xFF718096),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          List<BluetoothDevice> devices = await printer.getBondedDevices();
+
+                          if (devices.isEmpty) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text("No printers found. Order confirmed without printing.")),
+                              );
+                              _completeOrderWithoutPrinting(productName, size ?? "N/A", sugarLevel, category, totalPrice);
+                            }
+                            return;
+                          }
+
+                          _showPrinterSelectionDialog(context, devices, productName, size ?? "N/A", sugarLevel, category, totalPrice, name);
+                        },
+                        icon: const Icon(Icons.print, size: 18),
+                        label: const Text(
+                          "Print Receipt",
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF4B8673),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 0,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -323,26 +460,128 @@ class AddonSelectionState extends State<AddonSelection> {
     );
   }
 
-  void _completeOrderWithoutPrinting(String productName, String size, String? sugarLevel, String category, int totalPrice) {
-    cartItems.add(
-      CartItem(
-        productName: productName,
-        size: size,
-        addOns: _selectedAddOns.toList(),
-        totalPrice: totalPrice,
-        category: category,
-        sugarLevel: sugarLevel,
-      ),
-    );
-    _updateStockInFirestore();
-    Navigator.of(context).pop();
-    Navigator.of(this.context).pop();
-    ScaffoldMessenger.of(this.context).showSnackBar(
-      const SnackBar(content: Text("Order added!")),
+  void _showPrinterSelectionDialog(BuildContext context, List<BluetoothDevice> devices, String productName, String size, String? sugarLevel, String category, int totalPrice, String name) {
+    if (!mounted) return;
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext printerContext) {
+        return Dialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Color(0xFF4B8673), Color(0xFF5A9B85)],
+                    ),
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(20),
+                      topRight: Radius.circular(20),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.print, color: Colors.white, size: 24),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          "Select Printer",
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.of(printerContext).pop(),
+                        icon: const Icon(Icons.close, color: Colors.white),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                // Printer List
+                Flexible(
+                  child: devices.isEmpty
+                      ? const Padding(
+                          padding: EdgeInsets.all(40),
+                          child: Column(
+                            children: [
+                              Icon(Icons.print_disabled, size: 48, color: Color(0xFF718096)),
+                              SizedBox(height: 16),
+                              Text(
+                                "No printers found",
+                                style: TextStyle(fontSize: 16, color: Color(0xFF718096)),
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          shrinkWrap: true,
+                          padding: const EdgeInsets.all(16),
+                          itemCount: devices.length,
+                          itemBuilder: (context, index) {
+                            final device = devices[index];
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              child: ListTile(
+                                leading: const Icon(Icons.print, color: Color(0xFF4B8673)),
+                                title: Text(device.name ?? "Unknown Printer"),
+                                subtitle: Text(device.address ?? ""),
+                                onTap: () async {
+                                  Navigator.of(printerContext).pop();
+                                  
+                                  try {
+                                    bool? isConnected = await printer.isConnected;
+                                    if (isConnected != true) {
+                                      await printer.connect(device);
+                                    }
+
+                                    await printReceipt(
+                                      productName: productName,
+                                      size: size,
+                                      addOns: _selectedAddOns.toList(),
+                                      customerName: name,
+                                      sugarLevel: sugarLevel,
+                                      category: category,
+                                      totalPrice: totalPrice,
+                                    );
+
+                                    _completeOrderWithPrinting(productName, size, sugarLevel, category, totalPrice);
+                                  } catch (e) {
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text("Failed to connect: $e")),
+                                      );
+                                      _completeOrderWithoutPrinting(productName, size, sugarLevel, category, totalPrice);
+                                    }
+                                  }
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
-  void _completeOrderWithPrinting(String productName, String size, String? sugarLevel, String category, int totalPrice) {
+  void _completeOrderWithoutPrinting(String productName, String size, String? sugarLevel, String category, int totalPrice) {
+    if (!mounted) return;
+    
     cartItems.add(
       CartItem(
         productName: productName,
@@ -354,11 +593,46 @@ class AddonSelectionState extends State<AddonSelection> {
       ),
     );
     _updateStockInFirestore();
-    Navigator.of(context).pop();
-    Navigator.of(this.context).pop();
-    ScaffoldMessenger.of(this.context).showSnackBar(
-      const SnackBar(content: Text("Order added and printed!")),
+    
+    // Safe navigation with mounted checks
+    if (mounted) {
+      Navigator.of(context).pop();
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+    }
+  }
+
+  void _completeOrderWithPrinting(String productName, String size, String? sugarLevel, String category, int totalPrice) {
+    if (!mounted) return;
+    
+    cartItems.add(
+      CartItem(
+        productName: productName,
+        size: size,
+        addOns: _selectedAddOns.toList(),
+        totalPrice: totalPrice,
+        category: category,
+        sugarLevel: sugarLevel,
+      ),
     );
+    _updateStockInFirestore();
+    
+    // Safe navigation with mounted checks
+    if (mounted) {
+      Navigator.of(context).pop();
+      if (mounted) {
+        Navigator.of(context).pop();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Order added and printed! 🖨️"),
+              backgroundColor: Color(0xFF4B8673),
+            ),
+          );
+        }
+      }
+    }
   }
 
   Future<void> _updateStockInFirestore() async {
@@ -399,137 +673,331 @@ class AddonSelectionState extends State<AddonSelection> {
       }
     }
 
-    if (_mounted) {
+    if (_mounted && mounted) {
       _loadStock();
     }
   }
 
   void _handleConfirmation() {
+    if (!mounted) return;
+    
     String category = widget.selectedItem["category"] ?? "";
     
     if (category == "Snack" || category == "Silog") {
       // For Snack and Silog items, proceed directly to final confirmation with default name
-      _showFinalConfirmationDialog(context, "Customer", "N/A");
+      _showFinalConfirmationDialog(context, "Ma'am/Sir", "N/A");
     } else {
       // For drinks, show sugar level selection
       _showSugarLevelDialog(context);
     }
   }
 
-  void _showSugarLevelDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          backgroundColor: Colors.white,
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text("Select Sugar Level", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 16),
-                _buildSugarOption(context, "No Sugar"),
-                _buildSugarOption(context, "25%"),
-                _buildSugarOption(context, "50%"),
-                _buildSugarOption(context, "75%"),
-                _buildSugarOption(context, "100%"),
-                const SizedBox(height: 20),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text("Cancel"),
+void _showSugarLevelDialog(BuildContext context) {
+  if (!mounted) return;
+  
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (BuildContext context) {
+      return Dialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 500, maxHeight: 700),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Modern Header
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF4B8673), Color(0xFF5A9B85)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                )
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildSugarOption(BuildContext context, String label) {
-    return ListTile(
-      title: Text(label),
-      onTap: () {
-        Navigator.of(context).pop();
-        _promptForNameWithSugarLevel(label);
-      },
-    );
-  }
-
-  void _promptForNameWithSugarLevel(String sugarLevel) {
-    TextEditingController nameController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return Dialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  "Enter Customer Name",
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: nameController,
-                  decoration: InputDecoration(
-                    labelText: "Name",
-                    filled: true,
-                    fillColor: const Color(0xFFF6F6F6),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none
-                    ),
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(20),
+                    topRight: Radius.circular(20),
                   ),
                 ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                child: Row(
                   children: [
-                    ElevatedButton(
-                      onPressed: () {
-                        if (nameController.text.trim().isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text("Please input a name"),
-                            ),
-                          );
-                        } else {
-                          Navigator.of(context).pop();
-                          String rawName = nameController.text.trim();
-                          String capitalized =
-                              rawName[0].toUpperCase() + rawName.substring(1);
-                          _showFinalConfirmationDialog(context, capitalized, sugarLevel);
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF4B8673),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)
-                        )
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Text('Confirm', style: TextStyle(color: Colors.white)),
+                      child: const Icon(
+                        Icons.tune,
+                        color: Colors.white,
+                        size: 20,
+                      ),
                     ),
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.grey[700]
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Sugar Level",
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          Text(
+                            "Choose your sweetness preference",
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.white70,
+                            ),
+                          ),
+                        ],
                       ),
-                      child: const Text("Cancel"),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close, color: Colors.white),
                     ),
                   ],
+                ),
+              ),
+              
+              // Sugar Level Grid
+              Flexible(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: GridView.count(
+                    shrinkWrap: true,
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 1.1,
+                    children: [
+                      _buildSugarLevelCard("100%", Icons.sentiment_very_satisfied, const Color(0xFFE53E3E)),
+                      _buildSugarLevelCard("75%", Icons.sentiment_satisfied, const Color(0xFFED8936)),
+                      _buildSugarLevelCard("50%", Icons.sentiment_neutral, const Color(0xFF4B8673)), // Changed this line
+                      _buildSugarLevelCard("25%", Icons.sentiment_dissatisfied, const Color(0xFF3182CE)),
+                      _buildSugarLevelCard("0%", Icons.sentiment_very_dissatisfied, const Color(0xFF718096)),
+                      _buildSugarLevelCard("Custom", Icons.tune, const Color(0xFF805AD5)), // Added custom option
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
+  Widget _buildSugarLevelCard(String level, IconData icon, Color color) {
+    return InkWell(
+      onTap: () {
+        Navigator.of(context).pop();
+        _showCustomerNameDialog(context, level);
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withOpacity(0.3)),
+          boxShadow: [
+            BoxShadow(
+              color: color.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: color, size: 15),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              level,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showCustomerNameDialog(BuildContext context, String sugarLevel) {
+    if (!mounted) return;
+    
+    TextEditingController nameController = TextEditingController();
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {return Dialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 400, maxHeight: 500),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Color(0xFF4B8673), Color(0xFF5A9B85)],
+                    ),
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(20),
+                      topRight: Radius.circular(20),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.person,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          "Customer Name",
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                // Content
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    children: [
+                      const Text(
+                        "Enter customer name for the receipt",
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Color(0xFF4A5568),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 20),
+                      
+                      // Name Input Field
+                      TextFormField(
+                        controller: nameController,
+                        autofocus: true,
+                        decoration: InputDecoration(
+                          labelText: "Customer Name",
+                          hintText: "Enter name...",
+                          prefixIcon: const Icon(Icons.person_outline, color: Color(0xFF4B8673)),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFF4B8673), width: 2),
+                          ),
+                          fillColor: const Color(0xFFF8FAFC),
+                          filled: true,
+                        ),
+                        textInputAction: TextInputAction.done,
+                        onFieldSubmitted: (value) {
+                          String customerName = value.trim().isEmpty ? "Ma'am/Sir" : value.trim();
+                          Navigator.of(context).pop();
+                          _showFinalConfirmationDialog(context, customerName, sugarLevel);
+                        },
+                      ),
+                      const SizedBox(height: 24),
+                      
+                      // Action Buttons
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                                _showFinalConfirmationDialog(context, "Ma'am/Sir", sugarLevel);
+                              },
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                side: const BorderSide(color: Color(0xFFE2E8F0)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: const Text(
+                                "Skip",
+                                style: TextStyle(
+                                  color: Color(0xFF718096),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            flex: 2,
+                            child: ElevatedButton(
+                              onPressed: () {
+                                String customerName = nameController.text.trim().isEmpty 
+                                    ? "Ma'am/Sir" 
+                                    : nameController.text.trim();
+                                Navigator.of(context).pop();
+                                _showFinalConfirmationDialog(context, customerName, sugarLevel);
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF4B8673),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                elevation: 0,
+                              ),
+                              child: const Text(
+                                "Continue",
+                                style: TextStyle(fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -543,120 +1011,332 @@ class AddonSelectionState extends State<AddonSelection> {
   Widget build(BuildContext context) {
     String category = widget.selectedItem["category"] ?? "";
     
-    // For Silog items, show a loading indicator while the confirmation dialog is being prepared
+    // Handle Silog items - don't show addon selection UI
     if (category == "Silog") {
       return const Scaffold(
-        backgroundColor: Colors.transparent,
+        backgroundColor: Color(0xFFF8FAFC),
         body: Center(
           child: CircularProgressIndicator(
-            color: Color(0xFF4B8673),
+            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF4B8673)),
           ),
         ),
       );
     }
-    
-    String dialogTitle = _addOnCategory == "Snack Add-ons" ? "Select Snack Add-ons" : "Select Add-ons";
-    List<Map<String, String>> addOnsList = menuItems[_addOnCategory] ?? [];
 
-    return Dialog(
-      backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(dialogTitle, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black)),
-            const SizedBox(height: 10),
-            _isLoading
-                ? Center(child: LoadingAnimationWidget.fallingDot(color: const Color(0xFF4B8673), size: 80))
-                : SizedBox(
-                    height: 400,
-                    child: SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildAddOnTile("None", null, 1),
-                          ...addOnsList.map((addOn) {
-                            final name = addOn["name"];
-                            final price = addOn["price"];
-                            final int quantity = _addOnStock[name] ?? 0;
-                            String priceText = price ?? "₱0";
-                            if (quantity <= 0) {
-                              priceText = "$priceText (Out of stock)";
-                            }
-                            return _buildAddOnTile(name, priceText, quantity);
-                          }),
-                        ],
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF8FAFC),
+        appBar: AppBar(
+          title: const Text("Add-ons", style: TextStyle(color: Colors.white),),
+          backgroundColor: const Color(0xFF4B8673),
+          foregroundColor: Colors.white,
+          elevation: 0,
+        ),
+        body: Center(
+          child: LoadingAnimationWidget.threeArchedCircle(
+            color: const Color(0xFF4B8673),
+            size: 50,
+          ),
+        ),
+      );
+    }
+
+    List<Map<String, String>> addOnsMenu = menuItems[_addOnCategory] ?? [];
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        title: Text(_addOnCategory, style: TextStyle(color: Colors.white),),
+        backgroundColor: const Color(0xFF4B8673),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        actions: [
+          if (_selectedAddOns.isNotEmpty)
+            Container(
+              margin: const EdgeInsets.only(right: 16, top: 8, bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                "${_selectedAddOns.length} selected",
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w500,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // Selected Item Info
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.selectedItem["name"] ?? "Unknown Item",
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF2D3748),
+                  ),
+                ),
+                if (widget.selectedItem["size"] != null && widget.selectedItem["size"] != "N/A") ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF4B8673).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      widget.selectedItem["size"]!,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Color(0xFF4B8673),
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
-            const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                _buildConfirmButton("Confirm", () {
-                  widget.onAddOnsSelected(_selectedAddOns);
-                  _handleConfirmation();
-                }),
-                _buildCancelButton("Cancel", () {
-                  Navigator.of(context).pop();
-                }),
+                ],
               ],
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAddOnTile(String? name, String? price, int quantity) {
-    bool isNone = name == "None";
-    bool isDisabled = quantity <= 0 && !isNone;
-
-    return ListTile(
-      title: Text(name ?? "Unknown Add-on", style: isDisabled ? const TextStyle(color: Colors.grey) : null),
-      subtitle: price != null ? Text(price) : null,
-      trailing: Checkbox(
-        activeColor: const Color(0xFF4B8673),
-        value: isNone ? _selectedAddOns.isEmpty : _selectedAddOns.contains(name),
-        onChanged: isDisabled ? null : (bool? value) {
-          if (!_mounted) return;
+          ),
           
-          setState(() {
-            if (value == true) {
-              if (isNone) {
-                _selectedAddOns.clear();
-              } else {
-                _selectedAddOns.add(name ?? "");
-              }
-            } else {
-              if (!isNone) {
-                _selectedAddOns.remove(name ?? "");
-              }
-            }
-          });
-        },
-      ),
-    );
-  }
+          // Add-ons List
+          Expanded(
+            child: addOnsMenu.isEmpty
+                ? const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.add_circle_outline,
+                          size: 64,
+                          color: Color(0xFF718096),
+                        ),
+                        SizedBox(height: 16),
+                        Text(
+                          "No add-ons available",
+                          style: TextStyle(
+                            fontSize: 18,
+                            color: Color(0xFF718096),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: addOnsMenu.length,
+                    itemBuilder: (context, index) {
+                      var addOn = addOnsMenu[index];
+                      String name = addOn["name"] ?? "";
+                      String price = addOn["price"] ?? "₱0";
+                      bool isSelected = _selectedAddOns.contains(name);
+                      int stock = _addOnStock[name] ?? 0;
+                      bool isAvailable = stock > 0 || _addOnCategory == 'Snack Add-ons';
 
-  Widget _buildConfirmButton(String text, VoidCallback onPressed) {
-    return ElevatedButton(
-      onPressed: onPressed,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF4B8673),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: isAvailable
+                                ? () {
+                                    setState(() {
+                                      if (isSelected) {
+                                        _selectedAddOns.remove(name);
+                                      } else {
+                                        _selectedAddOns.add(name);
+                                      }
+                                    });
+                                    widget.onAddOnsSelected(_selectedAddOns);
+                                  }
+                                : null,
+                            borderRadius: BorderRadius.circular(16),
+                            child: Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? const Color(0xFF4B8673).withOpacity(0.1)
+                                    : Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: isSelected
+                                      ? const Color(0xFF4B8673)
+                                      : isAvailable
+                                          ? const Color(0xFFE2E8F0)
+                                          : const Color(0xFFE53E3E),
+                                  width: isSelected ? 2 : 1,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.05),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                children: [
+                                  // Selection Indicator
+                                  Container(
+                                    width: 24,
+                                    height: 24,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: isSelected
+                                          ? const Color(0xFF4B8673)
+                                          : Colors.transparent,
+                                      border: Border.all(
+                                        color: isSelected
+                                            ? const Color(0xFF4B8673)
+                                            : const Color(0xFFCBD5E0),
+                                        width: 2,
+                                      ),
+                                    ),
+                                    child: isSelected
+                                        ? const Icon(
+                                            Icons.check,
+                                            color: Colors.white,
+                                            size: 16,
+                                          )
+                                        : null,
+                                  ),
+                                  const SizedBox(width: 16),
+                                  
+                                  // Add-on Info
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          name,
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                            color: isAvailable
+                                                ? const Color(0xFF2D3748)
+                                                : const Color(0xFF718096),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Row(
+                                          children: [
+                                            Text(
+                                              price,
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w500,
+                                                color: isAvailable
+                                                    ? const Color(0xFF4B8673)
+                                                    : const Color(0xFF718096),
+                                              ),
+                                            ),
+                                            if (!isAvailable) ...[
+                                              const SizedBox(width: 8),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(
+                                                    horizontal: 8, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: const Color(0xFFE53E3E).withOpacity(0.1),
+                                                  borderRadius: BorderRadius.circular(12),
+                                                ),
+                                                child: const Text(
+                                                  "Out of Stock",
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: Color(0xFFE53E3E),
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                              ),
+                                            ] else if (_addOnCategory != 'Snack Add-ons') ...[
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                "Stock: $stock",
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  color: Color(0xFF718096),
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          
+          // Bottom Action Bar
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, -2),
+                ),
+              ],
+            ),
+            child: SafeArea(
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _handleConfirmation,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF4B8673),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: Text(
+                    _selectedAddOns.isEmpty
+                        ? "Continue without Add-ons"
+                        : "Continue with ${_selectedAddOns.length} Add-on${_selectedAddOns.length > 1 ? 's' : ''}",
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
-      child: Text(text, style: const TextStyle(color: Colors.white)),
-    );
-  }
-
-  Widget _buildCancelButton(String text, VoidCallback onPressed) {
-    return TextButton(
-      onPressed: onPressed,
-      style: TextButton.styleFrom(foregroundColor: Colors.grey[700]),
-      child: Text(text),
     );
   }
 }

@@ -486,6 +486,26 @@ Future<void> addToInventorySales() async {
     );
   }
 
+// Add this helper method to your _SalesPageState class
+IconData _getProductIcon(String category) {
+  switch (category.toLowerCase()) {
+    case 'classic milktea':
+      return Icons.local_cafe;
+    case 'fresh tea':
+      return Icons.local_drink;
+    case 'smoothies':
+      return Icons.local_bar;
+    case 'creampuff overload':
+      return Icons.cake;
+    case 'snack':
+      return Icons.fastfood;
+    case 'silog':
+      return Icons.restaurant;
+    default:
+      return Icons.shopping_bag;
+  }
+}
+
 Widget buildSaleItem(Map<String, dynamic> item, int index) {
   final category = (item['category'] ?? '').toString();
   final productName = item['productName'] ?? 'Unknown';
@@ -500,7 +520,7 @@ Widget buildSaleItem(Map<String, dynamic> item, int index) {
       : paymentMethod;
 
   // Don't show size if category is silog or snack
-  final showSize = category.toLowerCase() != 'silog' && category.toLowerCase() != 'snack';
+  final showSizeAndPayment = category.toLowerCase() != 'silog' && category.toLowerCase() != 'snack';
 
   // Get payment method color
   Color getPaymentColor() {
@@ -531,226 +551,268 @@ Widget buildSaleItem(Map<String, dynamic> item, int index) {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withOpacity(0.08),
             blurRadius: 20,
             offset: const Offset(0, 4),
-            spreadRadius: 0,
-          ),
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-            spreadRadius: 0,
           ),
         ],
-        border: Border.all(
-          color: Colors.grey.shade100,
-          width: 1,
-        ),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(15),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Payment method with modern styling
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: getPaymentColor().withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: getPaymentColor().withOpacity(0.2),
-                  width: 1,
-                ),
-              ),
-              child: Text(
-                'Payment: $capitalizedPaymentMethod', // Use the capitalized version here
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: getPaymentColor(),
-                  letterSpacing: 0.3,
-                ),
-              ),
-            ),
-            
-            const SizedBox(height: 16),
-            
-            // Product info section
-            showSize ? Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Category and product name
-                Text(
-                  '$category | $productName',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF2C3E50),
-                    height: 1.3,
-                  ),
-                ),
-                
-                const SizedBox(height: 12),
-                
-                // Size and amount row
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8F9FA),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: const Color(0xFFE9ECEF),
-                          width: 1,
-                        ),
-                      ),
-                      child: Text(
-                        'Size: $size',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF6C757D),
-                        ),
-                      ),
-                    ),
-                    
-                    // Modern price display
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            const Color(0xFF27AE60),
-                            const Color(0xFF2ECC71),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF27AE60).withOpacity(0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            children: [
+              // Header Section
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Product Icon/Avatar
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          const Color(0xFF4B8673).withOpacity(0.1),
+                          const Color(0xFF4B8673).withOpacity(0.05),
                         ],
                       ),
-                      child: Text(
-                        "₱${amount.toStringAsFixed(2)}",
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: const Color(0xFF4B8673).withOpacity(0.1),
+                        width: 1,
                       ),
                     ),
-                  ],
-                ),
-              ],
-            ) : Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // Category and product name (flexible to take available space)
-                Expanded(
-                  child: Text(
-                    '$category | $productName',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF2C3E50),
-                      height: 1.3,
+                    child: Icon(
+                      _getProductIcon(category),
+                      color: const Color(0xFF4B8673),
+                      size: 24,
                     ),
                   ),
-                ),
-                
-                const SizedBox(width: 12),
-                
-                // Modern price display
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        const Color(0xFF27AE60),
-                        const Color(0xFF2ECC71),
+                  const SizedBox(width: 16),
+                  
+                  // Product Details
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Category Badge
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF4B8673).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            category.toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF4B8673),
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        
+                        // Product Name
+                        Text(
+                          productName,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF2C3E50),
+                            height: 1.2,
+                          ),
+                        ),
+                        
+                        // Size and Payment Method
+                        if (showSizeAndPayment) ...[
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              _buildInfoChip(
+                                icon: Icons.local_drink_outlined,
+                                label: size,
+                                color: Colors.blue,
+                              ),
+                              const SizedBox(width: 8),
+                              _buildInfoChip(
+                                icon: paymentMethod.toLowerCase() == 'cash' 
+                                    ? Icons.payments_outlined 
+                                    : Icons.account_balance_wallet_outlined,
+                                label: capitalizedPaymentMethod,
+                                color: getPaymentColor(),
+                              ),
+                            ],
+                          ),
+                        ] else ...[
+                          // Show only payment method for silog and snack
+                          const SizedBox(height: 6),
+                          _buildInfoChip(
+                            icon: paymentMethod.toLowerCase() == 'cash' 
+                                ? Icons.payments_outlined 
+                                : Icons.account_balance_wallet_outlined,
+                            label: capitalizedPaymentMethod,
+                            color: getPaymentColor(),
+                          ),
+                        ],
                       ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
                     ),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF27AE60).withOpacity(0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
+                  ),
+                  
+                  // Price Section
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF4B8673), Color(0xFF5A9B85)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF4B8673).withOpacity(0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Text(
+                          "₱${amount.toStringAsFixed(2)}",
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 16,
+                          ),
+                        ),
                       ),
                     ],
                   ),
-                  child: Text(
-                    "₱${amount.toStringAsFixed(2)}",
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                ],
+              ),
+              
+              // Add-ons Section
+              if (addOns.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.grey.shade200,
+                      width: 1,
                     ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.add_circle_outline,
+                            size: 16,
+                            color: Colors.grey.shade600,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            "Add-ons",
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                              color: Colors.grey.shade700,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: addOns.map((addon) {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: Colors.grey.shade300,
+                                width: 1,
+                              ),
+                            ),
+                            child: Text(
+                              addon,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey.shade700,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
                   ),
                 ),
               ],
-            ),
-            
-            // Add-ons section with modern styling
-            if (addOns.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFF8E1),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: const Color(0xFFFFE082),
-                    width: 1,
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      "Add-ons:",
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFFE65100),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    ...addOns.map(
-                      (addOn) => Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Text(
-                          "- $addOn",
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Color(0xFFEF6C00),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             ],
-          ],
+          ),
         ),
       ),
+    ),
+  );
+}
+
+// Helper method for info chips (you'll need to add this if it doesn't exist)
+Widget _buildInfoChip({
+  required IconData icon,
+  required String label,
+  required Color color,
+}) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    decoration: BoxDecoration(
+      color: color.withOpacity(0.1),
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          icon,
+          size: 12,
+          color: color,
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            color: color,
+            letterSpacing: 0.3,
+          ),
+        ),
+      ],
     ),
   );
 }

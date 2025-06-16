@@ -1176,81 +1176,292 @@ Map<String, int> _getSmoothieDeductions(
     );
   }
 
-  Widget _buildCartItemCard(CartItem item) {
-    bool showSizeAndSugar =
-        item.category.toLowerCase() != 'snack' &&
-        item.category.toLowerCase() != 'silog';
+Widget _buildCartItemCard(CartItem item) {
+  bool showSizeAndSugar = item.category.toLowerCase() != 'snack' &&
+      item.category.toLowerCase() != 'silog';
 
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 4,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
+  return Container(
+    margin: const EdgeInsets.symmetric(vertical: 8),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.08),
+          blurRadius: 20,
+          offset: const Offset(0, 4),
+        ),
+      ],
+    ),
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.all(20),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            showSizeAndSugar
-                ? Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${item.category} | ${item.productName}',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        Text("${item.size} - ${item.sugarLevel}"),
+            // Header Section
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Product Icon/Avatar
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        const Color(0xFF4B8673).withOpacity(0.1),
+                        const Color(0xFF4B8673).withOpacity(0.05),
                       ],
                     ),
-                    Text(
-                      "₱${item.totalPrice.toStringAsFixed(2)}",
-                      style: const TextStyle(
-                        color: Colors.green,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: const Color(0xFF4B8673).withOpacity(0.1),
+                      width: 1,
                     ),
-                  ],
-                )
-                : Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  ),
+                  child: Icon(
+                    _getProductIcon(item.category),
+                    color: const Color(0xFF4B8673),
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                
+                // Product Details
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Category Badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF4B8673).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          item.category.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF4B8673),
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      
+                      // Product Name
+                      Text(
+                        item.productName,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF2C3E50),
+                          height: 1.2,
+                        ),
+                      ),
+                      
+                      // Size and Sugar Level
+                      if (showSizeAndSugar) ...[
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            _buildInfoChip(
+                              icon: Icons.local_drink_outlined,
+                              label: item.size ?? 'Regular',
+                              color: Colors.blue,
+                            ),
+                            const SizedBox(width: 8),
+                            _buildInfoChip(
+                              icon: Icons.water_drop_outlined,
+                              label: item.sugarLevel ?? '50%',
+                              color: Colors.orange,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                
+                // Price Section
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text(
-                      '${item.category} | ${item.productName}',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
                       ),
-                    ),
-                    Text(
-                      "₱${item.totalPrice.toStringAsFixed(2)}",
-                      style: const TextStyle(
-                        color: Colors.green,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF4B8673), Color(0xFF5A9B85)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF4B8673).withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Text(
+                        "₱${item.totalPrice.toStringAsFixed(2)}",
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                        ),
                       ),
                     ),
                   ],
                 ),
-            const SizedBox(height: 4),
+              ],
+            ),
+            
+            // Add-ons Section
             if (item.addOns.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              const Text(
-                "Add-ons:",
-                style: TextStyle(fontWeight: FontWeight.w500),
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.grey.shade200,
+                    width: 1,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.add_circle_outline,
+                          size: 16,
+                          color: Colors.grey.shade600,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          "Add-ons",
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                            color: Colors.grey.shade700,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: item.addOns.map((addon) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: Colors.grey.shade300,
+                              width: 1,
+                            ),
+                          ),
+                          child: Text(
+                            addon,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey.shade700,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
               ),
-              ...item.addOns.map((a) => Text('- $a')),
             ],
           ],
         ),
       ),
-    );
+    ),
+  );
+}
+
+// Helper widget for info chips
+Widget _buildInfoChip({
+  required IconData icon,
+  required String label,
+  required Color color,
+}) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    decoration: BoxDecoration(
+      color: color.withOpacity(0.1),
+      borderRadius: BorderRadius.circular(6),
+      border: Border.all(
+        color: color.withOpacity(0.2),
+        width: 1,
+      ),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          icon,
+          size: 12,
+          color: color,
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            color: color,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+// Helper method to get product icons
+IconData _getProductIcon(String category) {
+  switch (category.toLowerCase()) {
+    case 'classic milktea':
+      return Icons.local_cafe;
+    case 'fresh tea':
+      return Icons.local_drink;
+    case 'smoothies':
+      return Icons.local_bar;
+    case 'creampuff overload':
+      return Icons.cake;
+    case 'snack':
+      return Icons.fastfood;
+    case 'silog':
+      return Icons.restaurant;
+    default:
+      return Icons.shopping_bag;
   }
+}
 
   Widget _buildCartFooter() {
     return Container(
