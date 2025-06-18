@@ -256,6 +256,14 @@ class _SalaryState extends State<Salary> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Salary'),
+        centerTitle: true,
+        leading: IconButton(
+          onPressed: () => Navigator.pop(context),
+          icon: const Icon(
+            Icons.arrow_back_ios,
+            color: Color(0xFF2C3E50),
+          ),
+        ),
         elevation: 0,
       ),
       body: StreamBuilder<QuerySnapshot>(

@@ -33,7 +33,7 @@ class _CartPageState extends State<CartPage> {
   // Batch operations for better performance
   WriteBatch? _batch;
 
-  // OPTIMIZED: Single method to handle all deductions with batch operations
+ // UPDATED: Single method to handle all deductions with batch operations + promo info
   Future<void> _saveOrderAndDeductStockOptimized(PaymentMethod paymentMethod) async {
     final now = DateTime.now();
     final formattedDate = '${_monthName(now.month)} ${now.day} ${now.year}';
@@ -53,17 +53,36 @@ class _CartPageState extends State<CartPage> {
 
       // Process all cart items and calculate total deductions
       for (final item in cartItems) {
-        // Save order record with payment method
+        // UPDATED: Save order record with payment method AND promo information
         final id = _firestore.collection('temp').doc().id;
-        _batch!.set(_firestore.doc('$path/$id'), {
+        
+        // Create base order data
+        final Map<String, dynamic> orderData = {
           'category': item.category,
           'productName': item.productName,
           'size': item.size,
           'addOns': item.addOns,
           'amount': item.totalPrice,
-          'paymentMethod': paymentMethod.name, // Add payment method
+          'paymentMethod': paymentMethod.name,
           'timestamp': FieldValue.serverTimestamp(),
-        });
+        };
+
+        // UPDATED: Add promo information if available
+        if (item.promoName != null) {
+          orderData['promoName'] = item.promoName;
+        }
+        
+        if (item.discountAmount != null) {
+          orderData['discountAmount'] = item.discountAmount;
+        }
+
+        // UPDATED: Add original price if there was a discount
+        if (item.originalPrice != null) {
+          orderData['originalPrice'] = item.originalPrice;
+        }
+
+        // Save to Firebase
+        _batch!.set(_firestore.doc('$path/$id'), orderData);
 
         // Accumulate all deductions for this item
         final itemDeductions = await _calculateAllDeductions(item);
@@ -163,7 +182,7 @@ class _CartPageState extends State<CartPage> {
   Set<String> _getFlavorItemsForProduct(CartItem item) {
     final items = <String>{};
     final name = item.productName.toLowerCase();
-    final category = item.category.toLowerCase();
+    item.category.toLowerCase();
 
     // Add flavor items based on product
     final flavorMaps = [
@@ -1177,9 +1196,11 @@ Map<String, int> _getSmoothieDeductions(
   }
 
 Widget _buildCartItemCard(CartItem item) {
-  bool showSizeAndSugar = item.category.toLowerCase() != 'snack' &&
-      item.category.toLowerCase() != 'silog';
-
+  // Cache commonly used values
+  final category = item.category.toLowerCase();
+  final hasPromo = item.promoName != null && item.discountAmount != null;
+  final showSizeAndSugar = category != 'snack' && category != 'silog';
+  
   return Container(
     margin: const EdgeInsets.symmetric(vertical: 8),
     decoration: BoxDecoration(
@@ -1195,39 +1216,16 @@ Widget _buildCartItemCard(CartItem item) {
     ),
     child: ClipRRect(
       borderRadius: BorderRadius.circular(20),
-      child: Container(
+      child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
             // Header Section
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 // Product Icon/Avatar
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        const Color(0xFF4B8673).withOpacity(0.1),
-                        const Color(0xFF4B8673).withOpacity(0.05),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: const Color(0xFF4B8673).withOpacity(0.1),
-                      width: 1,
-                    ),
-                  ),
-                  child: Icon(
-                    _getProductIcon(item.category),
-                    color: const Color(0xFF4B8673),
-                    size: 24,
-                  ),
-                ),
+                _buildProductIcon(category),
                 const SizedBox(width: 16),
                 
                 // Product Details
@@ -1235,26 +1233,8 @@ Widget _buildCartItemCard(CartItem item) {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Category Badge
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF4B8673).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          item.category.toUpperCase(),
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xFF4B8673),
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
+                      // Category Badge only
+                      _buildCategoryBadge(item.category),
                       const SizedBox(height: 8),
                       
                       // Product Name
@@ -1268,135 +1248,30 @@ Widget _buildCartItemCard(CartItem item) {
                         ),
                       ),
                       
-                      // Size and Sugar Level
+                      // Size and Sugar Level (conditional)
                       if (showSizeAndSugar) ...[
                         const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            _buildInfoChip(
-                              icon: Icons.local_drink_outlined,
-                              label: item.size ?? 'Regular',
-                              color: Colors.blue,
-                            ),
-                            const SizedBox(width: 8),
-                            _buildInfoChip(
-                              icon: Icons.water_drop_outlined,
-                              label: item.sugarLevel ?? '50%',
-                              color: Colors.orange,
-                            ),
-                          ],
-                        ),
+                        _buildInfoChipsRow(item),
                       ],
                     ],
                   ),
                 ),
                 
                 // Price Section
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF4B8673), Color(0xFF5A9B85)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF4B8673).withOpacity(0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Text(
-                        "₱${item.totalPrice.toStringAsFixed(2)}",
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                _buildPriceSection(item, hasPromo),
               ],
             ),
             
-            // Add-ons Section
+            // Promo Section (conditional)
+            if (item.promoName != null) ...[
+              const SizedBox(height: 16),
+              _buildPromoSection(item.promoName!, item.discountAmount!.toDouble()),
+            ],
+            
+            // Add-ons Section (conditional)
             if (item.addOns.isNotEmpty) ...[
               const SizedBox(height: 16),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Colors.grey.shade200,
-                    width: 1,
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.add_circle_outline,
-                          size: 16,
-                          color: Colors.grey.shade600,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          "Add-ons",
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 12,
-                            color: Colors.grey.shade700,
-                            letterSpacing: 0.3,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      children: item.addOns.map((addon) {
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: Colors.grey.shade300,
-                              width: 1,
-                            ),
-                          ),
-                          child: Text(
-                            addon,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.grey.shade700,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ],
-                ),
-              ),
+              _buildAddOnsSection(item.addOns),
             ],
           ],
         ),
@@ -1405,7 +1280,237 @@ Widget _buildCartItemCard(CartItem item) {
   );
 }
 
-// Helper widget for info chips
+// Optimized helper methods
+Widget _buildProductIcon(String category) {
+  return Container(
+    width: 56,
+    height: 56,
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          const Color(0xFF4B8673).withOpacity(0.1),
+          const Color(0xFF4B8673).withOpacity(0.05),
+        ],
+      ),
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(
+        color: const Color(0xFF4B8673).withOpacity(0.1),
+        width: 1,
+      ),
+    ),
+    child: Icon(
+      _getProductIcon(category),
+      color: const Color(0xFF4B8673),
+      size: 24,
+    ),
+  );
+}
+
+Widget _buildCategoryBadge(String category) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+    decoration: BoxDecoration(
+      color: const Color(0xFF4B8673).withOpacity(0.1),
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: Text(
+      category.toUpperCase(),
+      style: const TextStyle(
+        fontSize: 10,
+        fontWeight: FontWeight.w600,
+        color: Color(0xFF4B8673),
+        letterSpacing: 0.5,
+      ),
+    ),
+  );
+}
+
+Widget _buildPromoSection(String promoName, double? discountAmount) {
+  return Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.green.shade50,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: Colors.green.shade200, width: 1),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.local_offer, size: 16, color: Colors.green.shade700),
+            const SizedBox(width: 8),
+            Text(
+              "Promo Applied:",
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+                color: Colors.green.shade700,
+                letterSpacing: 0.3,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.green.shade300, width: 1),
+          ),
+          child: Text(
+            discountAmount != null 
+                ? "$promoName - ₱${discountAmount.toStringAsFixed(2)}"
+                : promoName,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.green.shade700,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+
+
+Widget _buildInfoChipsRow(CartItem item) {
+  return Row(
+    children: [
+      _buildInfoChip(
+        icon: Icons.local_drink_outlined,
+        label: item.size,
+        color: Colors.blue,
+      ),
+      const SizedBox(width: 8),
+      _buildInfoChip(
+        icon: Icons.water_drop_outlined,
+        label: item.sugarLevel ?? '50%',
+        color: Colors.orange,
+      ),
+    ],
+  );
+}
+
+
+Widget _buildPriceSection(CartItem item, bool hasPromo) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.end,
+    children: [
+      // Original price with strikethrough (only if there's a discount)
+      if (hasPromo && item.originalPrice != null) ...[
+        Text(
+          "₱${item.originalPrice!.toDouble().toStringAsFixed(2)}", // Fix: Convert to double
+          style: TextStyle(
+            color: Colors.grey.shade500,
+            fontWeight: FontWeight.w500,
+            fontSize: 12,
+            decoration: TextDecoration.lineThrough,
+            decorationColor: Colors.grey.shade500,
+          ),
+        ),
+        const SizedBox(height: 2),
+      ],
+      
+      // Current price container
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: hasPromo 
+                ? [Colors.red.shade400, Colors.red.shade600] // Red for discounted
+                : [const Color(0xFF4B8673), const Color(0xFF5A9B85)], // Green for regular
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: (hasPromo 
+                  ? Colors.red.shade400 
+                  : const Color(0xFF4B8673)).withOpacity(0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Text(
+          "₱${item.totalPrice.toDouble().toStringAsFixed(2)}", // Fix: Convert to double
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+            fontSize: 16,
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
+Widget _buildAddOnsSection(List<String> addOns) {
+  return Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.grey.shade50,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: Colors.grey.shade200, width: 1),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.add_circle_outline, size: 16, color: Colors.grey.shade600),
+            const SizedBox(width: 6),
+            Text(
+              "Add-ons",
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+                color: Colors.grey.shade700,
+                letterSpacing: 0.3,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          children: addOns.map((addon) => _buildAddOnChip(addon)).toList(),
+        ),
+      ],
+    ),
+  );
+}
+
+Widget _buildAddOnChip(String addon) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: Colors.grey.shade300, width: 1),
+    ),
+    child: Text(
+      addon,
+      style: TextStyle(
+        fontSize: 11,
+        color: Colors.grey.shade700,
+        fontWeight: FontWeight.w500,
+      ),
+    ),
+  );
+}
+
+// Helper widget for info chips (reused)
 Widget _buildInfoChip({
   required IconData icon,
   required String label,
@@ -1416,19 +1521,12 @@ Widget _buildInfoChip({
     decoration: BoxDecoration(
       color: color.withOpacity(0.1),
       borderRadius: BorderRadius.circular(6),
-      border: Border.all(
-        color: color.withOpacity(0.2),
-        width: 1,
-      ),
+      border: Border.all(color: color.withOpacity(0.2), width: 1),
     ),
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          icon,
-          size: 12,
-          color: color,
-        ),
+        Icon(icon, size: 12, color: color),
         const SizedBox(width: 4),
         Text(
           label,
@@ -1443,9 +1541,9 @@ Widget _buildInfoChip({
   );
 }
 
-// Helper method to get product icons
+// Helper method to get product icons (reused)
 IconData _getProductIcon(String category) {
-  switch (category.toLowerCase()) {
+  switch (category) {
     case 'classic milktea':
       return Icons.local_cafe;
     case 'fresh tea':
@@ -1462,6 +1560,7 @@ IconData _getProductIcon(String category) {
       return Icons.shopping_bag;
   }
 }
+
 
   Widget _buildCartFooter() {
     return Container(

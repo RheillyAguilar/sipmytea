@@ -105,262 +105,277 @@ class _DailyPageState extends State<DailyPage> {
     }
   }
 
-  // [Keep all the existing _addUserToMonthlySale and _mergeDetailedData methods unchanged]
   Future<void> _addUserToMonthlySale(
-    String username,
-    Map<String, dynamic> data,
-  ) async {
-    final bool? confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
-        content: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: const [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.warning_amber_rounded,
-                  color: Colors.red,
-                  size: 40,
-                ),
-                SizedBox(width: 8),
-                Text(
-                  'Alert',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 25,
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: 20),
-            Text(
-              'Are you sure you want to add this to the Monthly Sale?',
-              style: TextStyle(fontSize: 15),
-            ),
-          ],
-        ),
-        actions: [
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF4B8673),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+  String username,
+  Map<String, dynamic> data,
+) async {
+  final bool? confirm = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      backgroundColor: Colors.white,
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: const [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.warning_amber_rounded,
+                color: Colors.red,
+                size: 40,
               ),
-            ),
-            child: const Text(
-              'Confirm',
-              style: TextStyle(color: Colors.white),
-            ),
+              SizedBox(width: 8),
+              Text(
+                'Alert',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 25,
+                ),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            style: TextButton.styleFrom(foregroundColor: Colors.grey[700]),
-            child: const Text('Cancel'),
+          SizedBox(height: 20),
+          Text(
+            'Are you sure you want to add this to the Monthly Sale?',
+            style: TextStyle(fontSize: 15),
           ),
         ],
       ),
-    );
-
-    if (confirm != true) return;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => Dialog(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        child: Center(
-          child: LoadingAnimationWidget.fallingDot(
-            color: Colors.white,
-            size: 80,
+      actions: [
+        ElevatedButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF4B8673),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          child: const Text(
+            'Confirm',
+            style: TextStyle(color: Colors.white),
           ),
         ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          style: TextButton.styleFrom(foregroundColor: Colors.grey[700]),
+          child: const Text('Cancel'),
+        ),
+      ],
+    ),
+  );
+
+  if (confirm != true) return;
+
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      child: Center(
+        child: LoadingAnimationWidget.fallingDot(
+          color: Colors.white,
+          size: 80,
+        ),
+      ),
+    ),
+  );
+
+  try {
+    final DateTime parsedDate = DateTime.parse(selectedDate);
+    final String formattedDate = DateFormat('MMMM d yyyy').format(parsedDate);
+    final String monthKey = DateFormat('MMMM yyyy').format(parsedDate);
+    final double netSales = (data['netSales'] ?? 0).toDouble();
+    final int cashTotal = data['cashTotal'] ?? 0;
+    final int gcashTotal = data['gcashTotal'] ?? 0;
+
+    Map<String, dynamic> formattedExpenses = {};
+    final dynamic expensesData = data['expenses'];
+    
+    if (expensesData != null) {
+      if (expensesData is Map) {
+        formattedExpenses = Map<String, dynamic>.from(expensesData);
+      } 
+      else if (expensesData is List && expensesData.isNotEmpty) {
+        for (int i = 0; i < expensesData.length; i++) {
+          formattedExpenses[i.toString()] = expensesData[i];
+        }
+      }
+    }
+
+    Map<String, dynamic> userDetailEntry = {
+      'username': username,
+      'amount': netSales,
+      'totalSales': data['totalSales'] ?? 0,
+      'netSales': netSales,
+      'cashTotal': cashTotal,
+      'gcashTotal': gcashTotal,
+      'date': selectedDate,
+      'formattedDate': formattedDate,
+
+      // Product counts
+      'silogCount': data['silogCount'] ?? 0,
+      'snackCount': data['snackCount'] ?? 0,
+      'regularCupCount': data['regularCupCount'] ?? 0,
+      'largeCupCount': data['largeCupCount'] ?? 0,
+
+      // Product details
+      'silogCategories': data['silogCategories'] ?? {},
+      'silogDetailedItems': data['silogDetailedItems'] ?? {},
+      'snackCategories': data['snackCategories'] ?? {},
+      'snackDetailedItems': data['snackDetailedItems'] ?? {},
+      'regularCupCategories': data['regularCupCategories'] ?? {},
+      'regularCupDetailedItems': data['regularCupDetailedItems'] ?? {},
+      'largeCupCategories': data['largeCupCategories'] ?? {},
+      'largeCupDetailedItems': data['largeCupDetailedItems'] ?? {},
+
+      // ADD PROMO DATA HERE
+      'promoCount': data['promoCount'] ?? 0,
+      'promoDetails': data['promoDetails'] ?? {},
+      'promoTotalDetails': data['promoTotalDetails'] ?? {},
+    };
+
+    if (formattedExpenses.isNotEmpty) {
+      userDetailEntry['expenses'] = formattedExpenses;
+    }
+
+    final docRef = firestore.collection('monthly_sales').doc(formattedDate);
+    final docSnap = await docRef.get();
+
+    final batch = firestore.batch();
+
+    if (docSnap.exists) {
+      final Map<String, dynamic> existingData = docSnap.data() ?? {};
+      final List<dynamic> existingUsers = existingData['users'] ?? [];
+      final List<dynamic> existingUserDetails = existingData['userDetails'] ?? [];
+      final Map<String, dynamic> existingMonthData = existingData['monthData'] ?? {};
+      
+      Map<String, dynamic> updatedMonthData = {
+        'silogTotal': (existingMonthData['silogTotal'] ?? 0) + (data['silogCount'] ?? 0),
+        'snackTotal': (existingMonthData['snackTotal'] ?? 0) + (data['snackCount'] ?? 0),
+        'regularCupTotal': (existingMonthData['regularCupTotal'] ?? 0) + (data['regularCupCount'] ?? 0),
+        'largeCupTotal': (existingMonthData['largeCupTotal'] ?? 0) + (data['largeCupCount'] ?? 0),
+        'totalSales': (existingMonthData['totalSales'] ?? 0) + (data['totalSales'] ?? 0),
+        'netSales': (existingMonthData['netSales'] ?? 0) + netSales,
+        'cashTotal': (existingMonthData['cashTotal'] ?? 0) + cashTotal,
+        'gcashTotal': (existingMonthData['gcashTotal'] ?? 0) + gcashTotal,
+        // ADD PROMO TOTALS TO MONTH DATA
+        'promoTotal': (existingMonthData['promoTotal'] ?? 0) + (data['promoCount'] ?? 0),
+      };
+
+      int existingUserIndex = -1;
+      for (int i = 0; i < existingUserDetails.length; i++) {
+        if (existingUserDetails[i]['username'] == username) {
+          existingUserIndex = i;
+          break;
+        }
+      }
+
+      if (existingUserIndex >= 0) {
+        final Map<String, dynamic> existingUserData = Map<String, dynamic>.from(existingUserDetails[existingUserIndex]);
+        
+        existingUserData['amount'] = (existingUserData['amount'] ?? 0) + netSales;
+        existingUserData['totalSales'] = (existingUserData['totalSales'] ?? 0) + (data['totalSales'] ?? 0);
+        existingUserData['netSales'] = (existingUserData['netSales'] ?? 0) + netSales;
+        existingUserData['cashTotal'] = (existingUserData['cashTotal'] ?? 0) + cashTotal;
+        existingUserData['gcashTotal'] = (existingUserData['gcashTotal'] ?? 0) + gcashTotal;
+        
+        existingUserData['silogCount'] = (existingUserData['silogCount'] ?? 0) + (data['silogCount'] ?? 0);
+        existingUserData['snackCount'] = (existingUserData['snackCount'] ?? 0) + (data['snackCount'] ?? 0);
+        existingUserData['regularCupCount'] = (existingUserData['regularCupCount'] ?? 0) + (data['regularCupCount'] ?? 0);
+        existingUserData['largeCupCount'] = (existingUserData['largeCupCount'] ?? 0) + (data['largeCupCount'] ?? 0);
+        
+        // MERGE PROMO DATA
+        existingUserData['promoCount'] = (existingUserData['promoCount'] ?? 0) + (data['promoCount'] ?? 0);
+        
+        // Merge product details
+        _mergeDetailedData(existingUserData, data, 'silogCategories');
+        _mergeDetailedData(existingUserData, data, 'silogDetailedItems');
+        _mergeDetailedData(existingUserData, data, 'snackCategories');
+        _mergeDetailedData(existingUserData, data, 'snackDetailedItems');
+        _mergeDetailedData(existingUserData, data, 'regularCupCategories');
+        _mergeDetailedData(existingUserData, data, 'regularCupDetailedItems');
+        _mergeDetailedData(existingUserData, data, 'largeCupCategories');
+        _mergeDetailedData(existingUserData, data, 'largeCupDetailedItems');
+        
+        // MERGE PROMO DETAILS
+        _mergeDetailedData(existingUserData, data, 'promoDetails');
+        _mergeDetailedData(existingUserData, data, 'promoTotalDetails');
+        
+        if (formattedExpenses.isNotEmpty) {
+          Map<String, dynamic> existingExpenses = Map<String, dynamic>.from(existingUserData['expenses'] ?? {});
+          
+          formattedExpenses.forEach((key, value) {
+            String uniqueKey = '${existingExpenses.length}_${DateTime.now().millisecondsSinceEpoch}';
+            existingExpenses[uniqueKey] = value;
+          });
+          
+          existingUserData['expenses'] = existingExpenses;
+        }
+        
+        existingUserDetails[existingUserIndex] = existingUserData;
+      } else {
+        existingUsers.add(username);
+        existingUserDetails.add(userDetailEntry);
+      }
+
+      batch.update(docRef, {
+        'amount': FieldValue.increment(netSales),
+        'users': existingUsers,
+        'userDetails': existingUserDetails,
+        'monthData': updatedMonthData,
+        'lastUpdated': FieldValue.serverTimestamp(),
+      });
+    } else {
+      batch.set(docRef, {
+        'amount': netSales,
+        'date': monthKey,
+        'users': [username],
+        'userDetails': [userDetailEntry],
+        'createdAt': FieldValue.serverTimestamp(),
+        'lastUpdated': FieldValue.serverTimestamp(),
+        'monthData': {
+          'silogTotal': data['silogCount'] ?? 0,
+          'snackTotal': data['snackCount'] ?? 0,
+          'regularCupTotal': data['regularCupCount'] ?? 0,
+          'largeCupTotal': data['largeCupCount'] ?? 0,
+          'totalSales': data['totalSales'] ?? 0,
+          'netSales': netSales,
+          'cashTotal': cashTotal,
+          'gcashTotal': gcashTotal,
+          // ADD PROMO TOTAL FOR NEW DOCUMENT
+          'promoTotal': data['promoCount'] ?? 0,
+        },
+      });
+    }
+
+    final dailyRecordRef = firestore
+        .collection('daily_records')
+        .doc(selectedDate)
+        .collection('users')
+        .doc(username);
+    batch.delete(dailyRecordRef);
+
+    await batch.commit();
+
+    setState(() => allDailyData.remove(username));
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Successfully added to monthly sales'),
       ),
     );
 
-    try {
-      final DateTime parsedDate = DateTime.parse(selectedDate);
-      final String formattedDate = DateFormat('MMMM d yyyy').format(parsedDate);
-      final String monthKey = DateFormat('MMMM yyyy').format(parsedDate);
-      final double netSales = (data['netSales'] ?? 0).toDouble();
-      final int cashTotal = data['cashTotal'] ?? 0;
-      final int gcashTotal = data['gcashTotal'] ?? 0;
+    Navigator.pop(context);
+  } catch (e) {
+    Navigator.pop(context);
 
-      Map<String, dynamic> formattedExpenses = {};
-      final dynamic expensesData = data['expenses'];
-      
-      if (expensesData != null) {
-        if (expensesData is Map) {
-          formattedExpenses = Map<String, dynamic>.from(expensesData);
-        } 
-        else if (expensesData is List && expensesData.isNotEmpty) {
-          for (int i = 0; i < expensesData.length; i++) {
-            formattedExpenses[i.toString()] = expensesData[i];
-          }
-        }
-        
-        print('Expenses data type: ${expensesData.runtimeType}');
-        print('Formatted expenses: $formattedExpenses');
-      }
-
-      Map<String, dynamic> userDetailEntry = {
-        'username': username,
-        'amount': netSales,
-        'totalSales': data['totalSales'] ?? 0,
-        'netSales': netSales,
-        'cashTotal': cashTotal,
-        'gcashTotal': gcashTotal,
-        'date': selectedDate,
-        'formattedDate': formattedDate,
-
-        'silogCount': data['silogCount'] ?? 0,
-        'snackCount': data['snackCount'] ?? 0,
-        'regularCupCount': data['regularCupCount'] ?? 0,
-        'largeCupCount': data['largeCupCount'] ?? 0,
-
-        'silogCategories': data['silogCategories'] ?? {},
-        'silogDetailedItems': data['silogDetailedItems'] ?? {},
-        'snackCategories': data['snackCategories'] ?? {},
-        'snackDetailedItems': data['snackDetailedItems'] ?? {},
-        'regularCupCategories': data['regularCupCategories'] ?? {},
-        'regularCupDetailedItems': data['regularCupDetailedItems'] ?? {},
-        'largeCupCategories': data['largeCupCategories'] ?? {},
-        'largeCupDetailedItems': data['largeCupDetailedItems'] ?? {},
-      };
-
-      if (formattedExpenses.isNotEmpty) {
-        userDetailEntry['expenses'] = formattedExpenses;
-      }
-
-      final docRef = firestore.collection('monthly_sales').doc(formattedDate);
-      final docSnap = await docRef.get();
-
-      final batch = firestore.batch();
-
-      if (docSnap.exists) {
-        final Map<String, dynamic> existingData = docSnap.data() ?? {};
-        final List<dynamic> existingUsers = existingData['users'] ?? [];
-        final List<dynamic> existingUserDetails = existingData['userDetails'] ?? [];
-        final Map<String, dynamic> existingMonthData = existingData['monthData'] ?? {};
-        
-        Map<String, dynamic> updatedMonthData = {
-          'silogTotal': (existingMonthData['silogTotal'] ?? 0) + (data['silogCount'] ?? 0),
-          'snackTotal': (existingMonthData['snackTotal'] ?? 0) + (data['snackCount'] ?? 0),
-          'regularCupTotal': (existingMonthData['regularCupTotal'] ?? 0) + (data['regularCupCount'] ?? 0),
-          'largeCupTotal': (existingMonthData['largeCupTotal'] ?? 0) + (data['largeCupCount'] ?? 0),
-          'totalSales': (existingMonthData['totalSales'] ?? 0) + (data['totalSales'] ?? 0),
-          'netSales': (existingMonthData['netSales'] ?? 0) + netSales,
-          'cashTotal': (existingMonthData['cashTotal'] ?? 0) + cashTotal,
-          'gcashTotal': (existingMonthData['gcashTotal'] ?? 0) + gcashTotal,
-        };
-
-        int existingUserIndex = -1;
-        for (int i = 0; i < existingUserDetails.length; i++) {
-          if (existingUserDetails[i]['username'] == username) {
-            existingUserIndex = i;
-            break;
-          }
-        }
-
-        if (existingUserIndex >= 0) {
-          final Map<String, dynamic> existingUserData = Map<String, dynamic>.from(existingUserDetails[existingUserIndex]);
-          
-          existingUserData['amount'] = (existingUserData['amount'] ?? 0) + netSales;
-          existingUserData['totalSales'] = (existingUserData['totalSales'] ?? 0) + (data['totalSales'] ?? 0);
-          existingUserData['netSales'] = (existingUserData['netSales'] ?? 0) + netSales;
-          existingUserData['cashTotal'] = (existingUserData['cashTotal'] ?? 0) + cashTotal;
-          existingUserData['gcashTotal'] = (existingUserData['gcashTotal'] ?? 0) + gcashTotal;
-          
-          existingUserData['silogCount'] = (existingUserData['silogCount'] ?? 0) + (data['silogCount'] ?? 0);
-          existingUserData['snackCount'] = (existingUserData['snackCount'] ?? 0) + (data['snackCount'] ?? 0);
-          existingUserData['regularCupCount'] = (existingUserData['regularCupCount'] ?? 0) + (data['regularCupCount'] ?? 0);
-          existingUserData['largeCupCount'] = (existingUserData['largeCupCount'] ?? 0) + (data['largeCupCount'] ?? 0);
-          
-          _mergeDetailedData(existingUserData, data, 'silogCategories');
-          _mergeDetailedData(existingUserData, data, 'silogDetailedItems');
-          _mergeDetailedData(existingUserData, data, 'snackCategories');
-          _mergeDetailedData(existingUserData, data, 'snackDetailedItems');
-          _mergeDetailedData(existingUserData, data, 'regularCupCategories');
-          _mergeDetailedData(existingUserData, data, 'regularCupDetailedItems');
-          _mergeDetailedData(existingUserData, data, 'largeCupCategories');
-          _mergeDetailedData(existingUserData, data, 'largeCupDetailedItems');
-          
-          if (formattedExpenses.isNotEmpty) {
-            Map<String, dynamic> existingExpenses = Map<String, dynamic>.from(existingUserData['expenses'] ?? {});
-            
-            formattedExpenses.forEach((key, value) {
-              String uniqueKey = '${existingExpenses.length}_${DateTime.now().millisecondsSinceEpoch}';
-              existingExpenses[uniqueKey] = value;
-            });
-            
-            existingUserData['expenses'] = existingExpenses;
-          }
-          
-          existingUserDetails[existingUserIndex] = existingUserData;
-        } else {
-          existingUsers.add(username);
-          existingUserDetails.add(userDetailEntry);
-        }
-
-        batch.update(docRef, {
-          'amount': FieldValue.increment(netSales),
-          'users': existingUsers,
-          'userDetails': existingUserDetails,
-          'monthData': updatedMonthData,
-          'lastUpdated': FieldValue.serverTimestamp(),
-        });
-      } else {
-        batch.set(docRef, {
-          'amount': netSales,
-          'date': monthKey,
-          'users': [username],
-          'userDetails': [userDetailEntry],
-          'createdAt': FieldValue.serverTimestamp(),
-          'lastUpdated': FieldValue.serverTimestamp(),
-          'monthData': {
-            'silogTotal': data['silogCount'] ?? 0,
-            'snackTotal': data['snackCount'] ?? 0,
-            'regularCupTotal': data['regularCupCount'] ?? 0,
-            'largeCupTotal': data['largeCupCount'] ?? 0,
-            'totalSales': data['totalSales'] ?? 0,
-            'netSales': netSales,
-            'cashTotal': cashTotal,
-            'gcashTotal': gcashTotal,
-          },
-        });
-      }
-
-      final dailyRecordRef = firestore
-          .collection('daily_records')
-          .doc(selectedDate)
-          .collection('users')
-          .doc(username);
-      batch.delete(dailyRecordRef);
-
-      await batch.commit();
-
-      setState(() => allDailyData.remove(username));
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Successfully added to monthly sales'),
-        ),
-      );
-
-      Navigator.pop(context);
-    } catch (e) {
-      Navigator.pop(context);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
-    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Error: $e')),
+    );
   }
+}
 
   void _mergeDetailedData(Map<String, dynamic> existingData, Map<String, dynamic> newData, String field) {
     Map<String, dynamic> existingMap = Map<String, dynamic>.from(existingData[field] ?? {});
@@ -401,6 +416,14 @@ class _DailyPageState extends State<DailyPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Daily Summary'),
+        centerTitle: true,
+        leading: IconButton(
+          onPressed: () => Navigator.pop(context),
+          icon: const Icon(
+            Icons.arrow_back_ios,
+            color: Color(0xFF2C3E50),
+          ),
+        ),
        actions: [
           Container(
             margin: const EdgeInsets.only(right: 16),
@@ -516,6 +539,8 @@ class _DailyPageState extends State<DailyPage> {
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
+
+            _buildPromoCard(data),
             
             Column(
               children: [
@@ -602,6 +627,292 @@ class _DailyPageState extends State<DailyPage> {
       ),
     );
   }
+
+  // Replace your existing _buildPromoCard method with this:
+Widget _buildPromoCard(Map<String, dynamic> data) {
+  final int promoCount = data['promoCount'] ?? 0;
+  
+  return GestureDetector(
+    onTap: () => _showPromoDetails(data),
+    child: Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.amber.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.amber.withOpacity(0.2)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.local_offer, color: Colors.amber, size: 24),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Promo',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '$promoCount',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.amber,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+// Replace your existing _showPromoDetails method with this:
+void _showPromoDetails(Map<String, dynamic> data) async {
+  // Show loading dialog first
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      child: Center(
+        child: LoadingAnimationWidget.fallingDot(
+          color: Colors.white,
+          size: 80,
+        ),
+      ),
+    ),
+  );
+
+  try {
+    // Simulate loading delay
+    await Future.delayed(const Duration(milliseconds: 500));
+    
+    Navigator.of(context).pop();
+
+    // Get promo data from the passed data parameter
+    final Map<String, dynamic> promoDetails = Map<String, dynamic>.from(data['promoDetails'] ?? {});
+    final Map<String, dynamic> promoTotalDetails = Map<String, dynamic>.from(data['promoTotalDetails'] ?? {});
+
+    // Show the actual promo details dialog
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Row(
+            children: [
+              Icon(Icons.local_offer, color: Colors.amber, size: 24),
+              SizedBox(width: 12),
+              Text(
+                'Promo Details',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          content: Container(
+            width: double.maxFinite,
+            constraints: const BoxConstraints(maxHeight: 300),
+            child: promoDetails.isEmpty
+                ? const Center(
+                    child: Text(
+                      'No promos applied',
+                      style: TextStyle(color: Colors.grey, fontSize: 14),
+                    ),
+                  )
+                : Column(
+                    children: [
+                      // Header row
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                          horizontal: 16,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withOpacity(0.1),
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(8),
+                            topRight: Radius.circular(8),
+                          ),
+                          border: Border.all(
+                            color: Colors.amber.withOpacity(0.3),
+                          ),
+                        ),
+                        child: const Row(
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: Text(
+                                'Promo Name',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.amber,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 1,
+                              child: Text(
+                                'Count',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.amber,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                            Expanded(
+                              flex: 1,
+                              child: Text(
+                                'Total',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.amber,
+                                ),
+                                textAlign: TextAlign.right,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Content rows
+                      Expanded(
+                        child: Container(
+                          decoration: const BoxDecoration(
+                            borderRadius: BorderRadius.only(
+                              bottomLeft: Radius.circular(8),
+                              bottomRight: Radius.circular(8),
+                            ),
+                          ),
+                          child: SingleChildScrollView(
+                            child: Column(
+                              children: promoDetails.entries.map((entry) {
+                                String promoName = entry.key;
+                                int promoCount = entry.value is int ? entry.value : int.tryParse(entry.value.toString()) ?? 0;
+                                
+                                // Get individual total for this promo
+                                int individualTotal = 0;
+                                if (promoTotalDetails.containsKey(promoName)) {
+                                  var totalValue = promoTotalDetails[promoName];
+                                  if (totalValue is int) {
+                                    individualTotal = totalValue;
+                                  } else if (totalValue is String) {
+                                    individualTotal = int.tryParse(totalValue) ?? 0;
+                                  } else if (totalValue is double) {
+                                    individualTotal = totalValue.toInt();
+                                  }
+                                }
+
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                    horizontal: 16,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    border: Border(
+                                      bottom: BorderSide(
+                                        color: Colors.amber.withOpacity(0.2),
+                                        width: 0.5,
+                                      ),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        flex: 2,
+                                        child: Text(
+                                          promoName,
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 1,
+                                        child: Text(
+                                          promoCount.toString(),
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.amber,
+                                          ),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 1,
+                                        child: Text(
+                                          '₱${individualTotal.toString()}',
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.amber,
+                                          ),
+                                          textAlign: TextAlign.right,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Close',
+                style: TextStyle(
+                  color: Colors.amber,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+  } catch (e) {
+    // Close loading dialog if there's an error
+    Navigator.of(context).pop();
+    
+    // Show error message
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Failed to load promo details: $e'),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+}
 
   Widget _buildPaymentMethodCard(
         String title, int amount, IconData icon, Color color) {

@@ -564,6 +564,14 @@ Widget _buildStockTile(QueryDocumentSnapshot stock) {
           'Stock',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
+        centerTitle: true,
+        leading: IconButton(
+          onPressed: () => Navigator.pop(context),
+          icon: const Icon(
+            Icons.arrow_back_ios,
+            color: Color(0xFF2C3E50),
+          ),
+        ),
         backgroundColor: Colors.white,
         elevation: 0,
         foregroundColor: Colors.black,

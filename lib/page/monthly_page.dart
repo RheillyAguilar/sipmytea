@@ -194,10 +194,12 @@ Future<void> _downloadPdf() async {
     'totalSales': 0.0,
     'cashTotal': 0.0,    // Add cash total
     'gcashTotal': 0.0,   // Add gcash total
+    'promoTotal': 0,     // Add promo total
     'largeCupCategories': <String, Map<String, int>>{},
     'regularCupCategories': <String, Map<String, int>>{},
     'silogCategories': <String, Map<String, int>>{},
     'snackCategories': <String, Map<String, int>>{},
+    'promoDetails': <String, Map<String, int>>{}, // Add promo details
     'expenses': <Map<String, dynamic>>[],
   };
 
@@ -234,10 +236,14 @@ Future<void> _downloadPdf() async {
         consolidatedData['gcashTotal'] += (monthData['gcashTotal'] is num) 
             ? (monthData['gcashTotal'] as num).toDouble() 
             : 0.0;
+        // Add promo total
+        consolidatedData['promoTotal'] += (monthData['promoTotal'] is num) 
+            ? (monthData['promoTotal'] as num).toInt() 
+            : 0;
       }
     }
 
-    // Process user details for category data and expenses
+    // Process user details for category data, promo data, and expenses
     if (data.containsKey('userDetails')) {
       final userDetails = data['userDetails'];
       if (userDetails is List) {
@@ -248,6 +254,9 @@ Future<void> _downloadPdf() async {
             _processDetailedItems(userDetail, 'regularCupDetailedItems', consolidatedData['regularCupCategories']);
             _processDetailedItems(userDetail, 'silogDetailedItems', consolidatedData['silogCategories']);
             _processDetailedItems(userDetail, 'snackDetailedItems', consolidatedData['snackCategories']);
+            
+            // Process promo data
+            _processPromoDetails(userDetail, consolidatedData['promoDetails']);
             
             // Process expenses
             if (userDetail.containsKey('expenses')) {
@@ -303,6 +312,12 @@ Future<void> _downloadPdf() async {
         pw.Text('SUMMARY', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
         pw.SizedBox(height: 10),
         _buildPdfSummaryTable(consolidatedData),
+        pw.SizedBox(height: 20),
+
+        // Promo Section (Before Payment Methods)
+        pw.Text('PROMOTIONS', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+        pw.SizedBox(height: 10),
+        _buildPdfPromoTable(consolidatedData),
         pw.SizedBox(height: 20),
 
         // Payment Methods Section
@@ -396,6 +411,111 @@ Future<void> _downloadPdf() async {
 
   await Printing.layoutPdf(onLayout: (format) async => pdf.save());
 }
+
+// Fixed helper method to process promo details - avoid double counting
+void _processPromoDetails(Map<dynamic, dynamic> userDetail, Map<String, Map<String, int>> promoMap) {
+  // Only process promoTotalDetails (this contains the actual promo usage data)
+  // Don't process both promoDetails and promoTotalDetails as it causes double counting
+  
+  if (userDetail.containsKey('promoTotalDetails')) {
+    final promoTotalDetails = userDetail['promoTotalDetails'];
+    if (promoTotalDetails is Map) {
+      promoTotalDetails.forEach((key, value) {
+        String promoName = key.toString();
+        
+        if (!promoMap.containsKey(promoName)) {
+          promoMap[promoName] = {'quantity': 0};
+        }
+        
+        int quantity = value is num ? value.toInt() : 0;
+        promoMap[promoName]!['quantity'] = (promoMap[promoName]!['quantity'] ?? 0) + quantity;
+      });
+    }
+  }
+  // If promoTotalDetails doesn't exist, fallback to promoDetails
+  else if (userDetail.containsKey('promoDetails')) {
+    final promoDetails = userDetail['promoDetails'];
+    if (promoDetails is Map) {
+      promoDetails.forEach((key, value) {
+        String promoName = key.toString();
+        
+        if (!promoMap.containsKey(promoName)) {
+          promoMap[promoName] = {'quantity': 0};
+        }
+        
+        int quantity = value is num ? value.toInt() : 0;
+        promoMap[promoName]!['quantity'] = (promoMap[promoName]!['quantity'] ?? 0) + quantity;
+      });
+    }
+  }
+}
+
+// Updated helper method to build promo table
+pw.Widget _buildPdfPromoTable(Map<String, dynamic> data) {
+  Map<String, Map<String, int>> promoDetails = data['promoDetails'] ?? {};
+  int promoTotal = data['promoTotal'] ?? 0;
+  
+  // If no promo details but has promoTotal, add default "Loyalty Card" entry
+  if (promoDetails.isEmpty && promoTotal > 0) {
+    promoDetails['Loyalty Card'] = {'quantity': promoTotal};
+  }
+  
+  if (promoDetails.isEmpty) {
+    return pw.Text('No promotions used', style: const pw.TextStyle(color: PdfColors.grey));
+  }
+
+  final rows = <pw.TableRow>[];
+  
+  // Header row
+  rows.add(
+    pw.TableRow(
+      decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+      children: [
+        _pdfTableCell('Promo Name', isHeader: true),
+        _pdfTableCell('Discounted Amount', isHeader: true),
+      ],
+    ),
+  );
+
+  // Group similar promo names and show count
+  Map<String, int> groupedPromos = {};
+  promoDetails.forEach((promoName, details) {
+    int quantity = details['quantity'] ?? 0;
+    if (groupedPromos.containsKey(promoName)) {
+      groupedPromos[promoName] = groupedPromos[promoName]! + quantity;
+    } else {
+      groupedPromos[promoName] = quantity;
+    }
+  });
+
+  // Calculate total occurrences for each promo type to show multiplier
+  Map<String, int> promoOccurrences = {};
+  promoDetails.forEach((promoName, details) {
+    promoOccurrences[promoName] = (promoOccurrences[promoName] ?? 0) + 1;
+  });
+
+  // Data rows
+  groupedPromos.forEach((promoName, totalQuantity) {
+    int occurrences = promoOccurrences[promoName] ?? 1;
+    String displayName = occurrences > 1 ? '${occurrences}x $promoName' : promoName;
+    
+    rows.add(
+      pw.TableRow(
+        children: [
+          _pdfTableCell(displayName),
+          _pdfTableCell(totalQuantity.toString()),
+        ],
+      ),
+    );
+  });
+
+  return pw.Table(
+    border: pw.TableBorder.all(color: PdfColors.grey),
+    children: rows,
+  );
+}
+
+// New helper method to build promo table
 
 // ✅ Helper method to get sorted daily sales list for PDF
 List<Map<String, dynamic>> _getSortedDailySalesList() {
@@ -721,6 +841,145 @@ pw.Widget _pdfTableCell(String text, {bool isHeader = false}) {
   );
 }
 
+// Then update your _showOptionsMenu method to include all the options:
+
+void _showOptionsMenu() {
+  final hasData = monthlySales > 0; // Changed from inventoryTotalSales to monthlySales
+  
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (context) => Container(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 20),
+          
+          // Download PDF Option
+          _buildMenuOption(
+            icon: Icons.download_outlined,
+            title: 'Download PDF Report',
+            subtitle: 'Generate and download monthly sales report',
+            onTap: () {
+              Navigator.pop(context);
+              _downloadPdf();
+            },
+          ),
+          const SizedBox(height: 16),
+          
+          // Change Month Option
+          _buildMenuOption(
+            icon: Icons.calendar_today_outlined,
+            title: 'Change Month',
+            subtitle: 'Select a different month to view',
+            onTap: () {
+              Navigator.pop(context);
+              _pickMonth();
+            },
+          ),
+          const SizedBox(height: 16),
+          
+          // Reset Sales Option (only show if there's data)
+          if (hasData) ...[
+            _buildMenuOption(
+              icon: Icons.refresh_outlined,
+              title: 'Reset Monthly Sales',
+              subtitle: 'Clear all sales data for this month',
+              onTap: () {
+                Navigator.pop(context);
+                _showResetConfirmationDialog();
+              },
+              isDestructive: true, // Add this parameter to make it red
+            ),
+          ],
+          
+          const SizedBox(height: 20),
+        ],
+      ),
+    ),
+  );
+}
+
+// Update the _buildMenuOption method to support destructive actions:
+
+Widget _buildMenuOption({
+  required IconData icon,
+  required String title,
+  required String subtitle,
+  required VoidCallback onTap,
+  bool isDestructive = false, // Add this parameter
+}) {
+  final color = isDestructive ? Colors.red : const Color(0xFF4B8673);
+  
+  return InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(12),
+    child: Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.withOpacity(0.2)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              icon,
+              color: color,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: isDestructive ? Colors.red : null,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Icon(
+            Icons.chevron_right,
+            color: Colors.grey[400],
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 Widget _buildSalesList() {
   return ListView.builder(
     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -869,6 +1128,8 @@ Widget _buildSalesList() {
   );
 }
 
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -895,46 +1156,8 @@ Widget _buildSalesList() {
         ),
         actions: [
           IconButton(
-            icon: const Icon(
-              Iconsax.calendar_edit,
-              color: Color(0xFF4B8673),
-            ),
-            onPressed: _pickMonth,
-          ),
-          PopupMenuButton<String>(
-            icon: const Icon(
-              Iconsax.more,
-              color: Color(0xFF4B8673),
-            ),
-            onSelected: (value) {
-              if (value == 'reset') {
-                _showResetConfirmationDialog();
-              } else if (value == 'download') {
-                _downloadPdf();
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'download',
-                child: Row(
-                  children: [
-                    Icon(Iconsax.document_download, size: 16),
-                    SizedBox(width: 8),
-                    Text('Download PDF'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'reset',
-                child: Row(
-                  children: [
-                    Icon(Iconsax.refresh, size: 16, color: Colors.red),
-                    SizedBox(width: 8),
-                    Text('Reset Sales', style: TextStyle(color: Colors.red)),
-                  ],
-                ),
-              ),
-            ],
+            icon: const Icon(Iconsax.more, color: Color(0xFF4B8673)),
+            onPressed: _showOptionsMenu,
           ),
         ],
       ),

@@ -210,6 +210,11 @@ Future<void> addToInventorySales() async {
 
     // Payment method tracking
     Map<String, double> paymentMethodTotals = {};
+    
+    // Promo tracking - NEW
+    Map<String, double> promoTotals = {};
+    Map<String, int> promoCounts = {};
+    double totalDiscountAmount = 0.0;
 
     int sum = 0;
 
@@ -225,6 +230,11 @@ Future<void> addToInventorySales() async {
       final size = (data['size'] ?? '').toString().toLowerCase();
       final category = data['category'] ?? 'Unknown';
       final paymentMethod = (data['paymentMethod'] ?? 'Unknown').toString();
+      
+      // Promo data - NEW
+      final promoName = data['promoName']?.toString();
+      final discountAmount = data['discountAmount']?.toDouble();
+      final originalPrice = data['originalPrice']?.toDouble();
 
       sum += amountInt;
 
@@ -232,9 +242,20 @@ Future<void> addToInventorySales() async {
       paymentMethodTotals[paymentMethod] = 
           (paymentMethodTotals[paymentMethod] ?? 0.0) + amountDouble;
 
+      // Track promo data - NEW
+      if (promoName != null && promoName.isNotEmpty && discountAmount != null && discountAmount > 0) {
+        promoTotals[promoName] = (promoTotals[promoName] ?? 0.0) + discountAmount;
+        promoCounts[promoName] = (promoCounts[promoName] ?? 0) + 1;
+        totalDiscountAmount += discountAmount;
+      }
+
       Map<String, dynamic> itemData = {
         'name': productName,
         'category': category,
+        // Add promo information to item data - NEW
+        if (promoName != null && promoName.isNotEmpty) 'promoName': promoName,
+        if (discountAmount != null && discountAmount > 0) 'discountAmount': discountAmount,
+        if (originalPrice != null) 'originalPrice': originalPrice,
       };
 
       // Add items to lists - allowing duplicates
@@ -274,6 +295,51 @@ Future<void> addToInventorySales() async {
       existingPaymentTotals[method] = 
           (existingPaymentTotals[method] ?? 0.0) + amount;
     });
+
+    // Process existing promo data - NEW
+    Map<String, double> existingPromoTotals = {};
+    Map<String, int> existingPromoCounts = {};
+    double existingTotalDiscountAmount = 0.0;
+
+    if (existingData.containsKey('promoTotals')) {
+      final existing = existingData['promoTotals'];
+      if (existing is Map) {
+        existing.forEach((key, value) {
+          existingPromoTotals[key.toString()] = 
+              (value is num) ? value.toDouble() : 0.0;
+        });
+      }
+    }
+
+    if (existingData.containsKey('promoCounts')) {
+      final existing = existingData['promoCounts'];
+      if (existing is Map) {
+        existing.forEach((key, value) {
+          existingPromoCounts[key.toString()] = 
+              (value is num) ? value.toInt() : 0;
+        });
+      }
+    }
+
+    if (existingData.containsKey('totalDiscountAmount')) {
+      existingTotalDiscountAmount = 
+          (existingData['totalDiscountAmount'] is num) 
+              ? (existingData['totalDiscountAmount'] as num).toDouble() 
+              : 0.0;
+    }
+
+    // Merge promo data - NEW
+    promoTotals.forEach((promo, amount) {
+      existingPromoTotals[promo] = 
+          (existingPromoTotals[promo] ?? 0.0) + amount;
+    });
+
+    promoCounts.forEach((promo, count) {
+      existingPromoCounts[promo] = 
+          (existingPromoCounts[promo] ?? 0) + count;
+    });
+
+    existingTotalDiscountAmount += totalDiscountAmount;
 
     // Process counts and categories together
     Map<String, int> silogCounts = {};
@@ -320,7 +386,7 @@ Future<void> addToInventorySales() async {
       largeCupCategories,
     );
 
-    // Prepare data to update (including payment method data)
+    // Prepare data to update (including payment method and promo data)
     final data = {
       'totalSales': (existingData['totalSales'] ?? 0) + sum,
       'silogCount': silogCounts,
@@ -331,7 +397,11 @@ Future<void> addToInventorySales() async {
       'snackCategories': snackCategories,
       'regularCupCategories': regularCupCategories,
       'largeCupCategories': largeCupCategories,
-      'paymentMethodTotals': existingPaymentTotals, // Add payment method data
+      'paymentMethodTotals': existingPaymentTotals,
+      // Add promo data - NEW
+      'promoTotals': existingPromoTotals,
+      'promoCounts': existingPromoCounts,
+      'totalDiscountAmount': existingTotalDiscountAmount,
       'timestamp': FieldValue.serverTimestamp(),
       'date': today,
     };
@@ -506,6 +576,7 @@ IconData _getProductIcon(String category) {
   }
 }
 
+
 Widget buildSaleItem(Map<String, dynamic> item, int index) {
   final category = (item['category'] ?? '').toString();
   final productName = item['productName'] ?? 'Unknown';
@@ -513,6 +584,12 @@ Widget buildSaleItem(Map<String, dynamic> item, int index) {
   final addOns = List<String>.from(item['addOns'] ?? []);
   final amount = item['amount']?.toDouble() ?? 0.0;
   final paymentMethod = item['paymentMethod'] ?? 'N/A';
+  
+  // Promo related fields
+  final promoName = item['promoName']?.toString();
+  final discountAmount = item['discountAmount']?.toDouble();
+  final originalPrice = item['originalPrice']?.toDouble();
+  final hasPromo = promoName != null && promoName.isNotEmpty && discountAmount != null && discountAmount > 0;
   
   // Capitalize the first letter of payment method
   final capitalizedPaymentMethod = paymentMethod.isNotEmpty 
@@ -565,7 +642,7 @@ Widget buildSaleItem(Map<String, dynamic> item, int index) {
             children: [
               // Header Section
               Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   // Product Icon/Avatar
                   Container(
@@ -671,39 +748,126 @@ Widget buildSaleItem(Map<String, dynamic> item, int index) {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
+                      // Show original price if there's a promo
+                      if (hasPromo && originalPrice != null) ...[
+                        Text(
+                          "₱${originalPrice.toStringAsFixed(2)}",
+                          style: TextStyle(
+                            color: Colors.grey[500],
+                            fontSize: 12,
+                            decoration: TextDecoration.lineThrough,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                      ],
+                      
+                      // Final amount
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 12,
                           vertical: 8,
                         ),
                         decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF4B8673), Color(0xFF5A9B85)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
+                           gradient: LinearGradient(
+            colors: hasPromo 
+                ? [Colors.red.shade400, Colors.red.shade600] // Red for discounted
+                : [const Color(0xFF4B8673), const Color(0xFF5A9B85)], // Green for regular
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF4B8673).withOpacity(0.3),
+                              color: (hasPromo 
+                                  ? const Color(0xFFE74C3C) 
+                                  : const Color(0xFF4B8673)).withOpacity(0.3),
                               blurRadius: 8,
                               offset: const Offset(0, 2),
                             ),
                           ],
                         ),
-                        child: Text(
-                          "₱${amount.toStringAsFixed(2)}",
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 16,
-                          ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              "₱${amount.toStringAsFixed(2)}",
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
                 ],
               ),
+              
+              // Promo Section (if applicable)
+              if (hasPromo) ...[
+                const SizedBox(height: 16),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        const Color(0xFF2ECC71).withOpacity(0.1),
+                        const Color(0xFF27AE60).withOpacity(0.05),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: const Color(0xFF2ECC71).withOpacity(0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.local_offer, size: 16, color: Colors.green.shade700),
+            const SizedBox(width: 8),
+            Text(
+              "Promo Applied:",
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+                color: Colors.green.shade700,
+                letterSpacing: 0.3,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.green.shade300, width: 1),
+          ),
+          child: Text(
+            discountAmount != null 
+                ? "$promoName - ₱${discountAmount.toStringAsFixed(2)}"
+                : promoName,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.green.shade700,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    ),
+                ),
+              ],
               
               // Add-ons Section
               if (addOns.isNotEmpty) ...[
@@ -817,6 +981,125 @@ Widget _buildInfoChip({
   );
 }
 
+// Corrected method to show options menu
+void _showOptionsMenu() {
+  final hasData = salesData.isNotEmpty; // Check if there's sales data
+  
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (context) => Container(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 20),
+          if (hasData) ...[
+            _buildMenuOption(
+              icon: Icons.inventory_outlined,
+              title: 'Add to Inventory',
+              subtitle: 'Transfer sales data to inventory records',
+              onTap: () {
+                Navigator.pop(context);
+                _confirmDialog(
+                  title: 'Add to Inventory',
+                  content: 'This will move all sales data to inventory. Continue?',
+                  onConfirm: addToInventorySales,
+                );
+              },
+            ),
+            const SizedBox(height: 16),
+          ],
+          _buildMenuOption(
+            icon: Icons.calendar_today_outlined,
+            title: 'Change Date',
+            subtitle: 'Select a different date to view',
+            onTap: () {
+              Navigator.pop(context);
+              _pickDate();
+            },
+          ),
+          const SizedBox(height: 20),
+        ],
+      ),
+    ),
+  );
+}
+
+Widget _buildMenuOption({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.withOpacity(0.2)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF4B8673).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                icon,
+                color: const Color(0xFF4B8673),
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right,
+              color: Colors.grey[400],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+
 
   Widget swipeBackground({required bool isLeft}) {
     return Container(
@@ -827,126 +1110,145 @@ Widget _buildInfoChip({
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF9F9F9),
-      appBar: AppBar(
-        title: const Text('Sales'),
-               actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 16),
-            child: Material(
-              color: const Color(0xFF4B8673).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(12),
-                onTap: _pickDate,
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  child: Icon(
-                    Iconsax.calendar,
-                    color: const Color(0xFF4B8673),
-                    size: 20,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-      body:
-          isLoading
-              ? Center(
-                child: LoadingAnimationWidget.fallingDot(
-                  color: const Color(0xFF4b8673),
-                  size: 80,
-                ),
-              )
-              : Column(
-                children: [
-                  Expanded(
-                    child:
-                        salesData.isEmpty
-                            ? buildEmptyState()
-                            : ListView.builder(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                              ),
-                              itemCount: salesData.length,
-                              itemBuilder:
-                                  (context, index) =>
-                                      buildSaleItem(salesData[index], index),
-                            ),
-                  ),
-                  if (salesData.isNotEmpty) buildBottomSummary(),
-                ],
-              ),
-    );
-  }
-
-  Widget buildBottomSummary() {
+  // Build the header card similar to Monthly page
+  Widget buildHeaderCard() {
     return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF4B8673),
+            Color(0xFF5A9B85),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black12,
-            blurRadius: 10,
-            offset: Offset(0, -2),
+            color: const Color(0xFF4B8673).withOpacity(0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Sales:',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Iconsax.chart,
+                  color: Colors.white,
+                  size: 24,
+                ),
               ),
-              Text(
-                '₱${totalSales.toStringAsFixed(2)}',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.green,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      formattedDateDisplay,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const Text(
+                      'Daily Sales Report',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed:
-                  () => _confirmDialog(
-                    title: 'Confirm Action',
-                    content: 'Add sales to inventory and reset data?',
-                    onConfirm: addToInventorySales,
-                  ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF4B8673),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: const Text(
-                'Add to Inventory',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ),
+          const SizedBox(height: 20),
+          const Text(
+            'Total Sales',
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '₱${totalSales.toStringAsFixed(2)}',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 32,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],
       ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F7FA),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFFF5F7FA),
+        elevation: 0,
+        title: const Text(
+          'Sales',
+          style: TextStyle(
+            color: Color(0xFF2C3E50),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        centerTitle: true,
+        leading: IconButton(
+          onPressed: () => Navigator.pop(context),
+          icon: const Icon(
+            Icons.arrow_back_ios,
+            color: Color(0xFF2C3E50),
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Iconsax.more, color: Color(0xFF4B8673)),
+            onPressed: _showOptionsMenu,
+          ),
+        ],
+      ),
+      body: isLoading
+          ? Center(
+              child: LoadingAnimationWidget.fallingDot(
+                color: const Color(0xFF4B8673),
+                size: 80,
+              ),
+            )
+          : Column(
+              children: [
+                buildHeaderCard(),
+                Expanded(
+                  child: salesData.isEmpty
+                      ? buildEmptyState()
+                      : ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          itemCount: salesData.length,
+                          itemBuilder: (context, index) {
+                            return buildSaleItem(salesData[index], index);
+                          },
+                        ),
+                ),
+              ],
+            ),
     );
   }
 }

@@ -589,7 +589,16 @@ class _FinishedPageState extends State<FinishedPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Finished Goods')),
+      appBar: AppBar(title: const Text('Finished Goods'),
+      centerTitle: true,
+      leading: IconButton(
+          onPressed: () => Navigator.pop(context),
+          icon: const Icon(
+            Icons.arrow_back_ios,
+            color: Color(0xFF2C3E50),
+          ),
+        ),
+      ),
       body: StreamBuilder<QuerySnapshot>(
         stream: finishedGoodsRef.snapshots(),
         builder: (context, snapshot) {
