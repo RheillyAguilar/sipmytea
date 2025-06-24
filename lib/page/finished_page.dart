@@ -589,7 +589,16 @@ class _FinishedPageState extends State<FinishedPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Finished Goods')),
+      appBar: AppBar(title: const Text('Finished Goods'),
+      centerTitle: true,
+      leading: IconButton(
+          onPressed: () => Navigator.pop(context),
+          icon: const Icon(
+            Icons.arrow_back_ios,
+            color: Color(0xFF2C3E50),
+          ),
+        ),
+      ),
       body: StreamBuilder<QuerySnapshot>(
         stream: finishedGoodsRef.snapshots(),
         builder: (context, snapshot) {
@@ -672,65 +681,211 @@ class _FinishedPageState extends State<FinishedPage> {
     );
   }
 
-  Widget _buildFinishedGoodCard(DocumentSnapshot item) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      elevation: 4,
-      color: Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(
+Widget _buildFinishedGoodCard(DocumentSnapshot item) {
+  return Container(
+    margin: const EdgeInsets.only(bottom: 12),
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(20),
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Colors.white,
+          Colors.grey.shade50,
+        ],
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.06),
+          blurRadius: 16,
+          offset: const Offset(0, 4),
+          spreadRadius: 0,
+        ),
+      ],
+      border: Border.all(
+        color: Colors.grey.shade200,
+        width: 0.5,
+      ),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Compact header
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF4B8673).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
                   Iconsax.document_normal,
                   color: Color(0xFF4B8673),
-                  size: 28,
+                  size: 20,
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    '${item['name']} | ${item['canDo']}',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                      color: Colors.black87,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if (item['ingredients'] != null && item['ingredients'] is List)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Ingredients:',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 4),
-                  ...List<Widget>.from(
-                    (item['ingredients'] as List).map((ingredient) {
-                      return Text(
-                        '• ${ingredient['name']} - ${ingredient['quantity']}',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Colors.black54,
-                        ),
-                      );
-                    }),
-                  ),
-                ],
               ),
-          ],
-        ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  item['name'] ?? 'Unknown',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                    color: Colors.black87,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF4B8673),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  'Can do: ${item['canDo']}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 12),
+          
+          // Compact ingredients section
+          if (item['ingredients'] != null && item['ingredients'] is List)
+            _buildCompactIngredients(item['ingredients'] as List<dynamic>),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
+
+Widget _buildCompactIngredients(List<dynamic> ingredients) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      // Minimal section header
+      Row(
+        children: [
+          Container(
+            width: 3,
+            height: 14,
+            decoration: BoxDecoration(
+              color: const Color(0xFF4B8673),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            'Ingredient${ingredients.length == 1 ? '' : 's'}',
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+              color: Colors.black87,
+            ),
+          ),
+        ],
+      ),
+      
+      const SizedBox(height: 8),
+      
+      // 2-column grid layout for ingredients
+      _buildIngredientsGrid(ingredients),
+    ],
+  );
+}
+
+Widget _buildIngredientsGrid(List<dynamic> ingredients) {
+  return Column(
+    children: [
+      // Create rows of 2 ingredients each
+      for (int i = 0; i < ingredients.length; i += 2)
+        Padding(
+          padding: EdgeInsets.only(bottom: i + 2 < ingredients.length ? 6 : 0),
+          child: Row(
+            children: [
+              // First ingredient in the row
+              Expanded(
+                child: _buildCompactIngredientChip(
+                  ingredients[i]['name']?.toString() ?? '',
+                  ingredients[i]['quantity']?.toString() ?? '0',
+                ),
+              ),
+              // Second ingredient if exists
+              if (i + 1 < ingredients.length) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildCompactIngredientChip(
+                    ingredients[i + 1]['name']?.toString() ?? '',
+                    ingredients[i + 1]['quantity']?.toString() ?? '0',
+                  ),
+                ),
+              ] else
+                const Expanded(child: SizedBox()), // Empty space if odd number
+            ],
+          ),
+        ),
+    ],
+  );
+}
+
+Widget _buildCompactIngredientChip(String name, String quantity) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+    decoration: BoxDecoration(
+      color: Colors.grey.shade100,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(
+        color: Colors.grey.shade300,
+        width: 0.5,
+      ),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Expanded(
+          child: Text(
+            name,
+            style: const TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+              color: Colors.black87,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const SizedBox(width: 4),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+          decoration: BoxDecoration(
+            color: const Color(0xFF4B8673).withOpacity(0.2),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(
+            quantity,
+            style: const TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF4B8673),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
 
   Future<void> _confirmDelete(String docId) async {
     final confirm = await showDialog<bool>(

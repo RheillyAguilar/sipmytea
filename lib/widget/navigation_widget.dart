@@ -7,6 +7,7 @@ import 'package:sipmytea/page/daily_page.dart';
 import 'package:sipmytea/page/finished_page.dart';
 import 'package:sipmytea/page/inventory_page.dart';
 import 'package:sipmytea/page/monthly_page.dart';
+import 'package:sipmytea/page/promo.dart';
 import 'package:sipmytea/page/sales_page.dart';
 import 'package:sipmytea/page/stock_page.dart';
 
@@ -71,6 +72,8 @@ class _NavigationWidgetState extends State<NavigationWidget> {
         Navigator.of(context).push(MaterialPageRoute(builder: (_) => Salary(
           username: widget.username, isAdmin: widget.isAdmin
         )));
+      case 8:
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => Promo(isAdmin: widget.isAdmin)));
         break;
     }
   }
@@ -100,6 +103,7 @@ class _NavigationWidgetState extends State<NavigationWidget> {
                 if (widget.isAdmin) buildItem(text: 'Monthly Sales', icon: Iconsax.calendar, onClicked: () => selectedItem(context, 4)),
                 buildItem(text: 'Finished Goods', icon: Iconsax.document, onClicked: () => selectedItem(context, 1)),
                 buildItem(text: 'Stock', icon: Iconsax.box4, onClicked: () => selectedItem(context, 3)),
+                buildItem(text: 'Promo', icon: Icons.local_offer_outlined, onClicked: () => selectedItem(context, 8)),
                 buildItem(text: 'Salary', icon: Iconsax.money_send, onClicked: () => selectedItem(context, 7)),
                 if (widget.isAdmin) buildItem(text: 'Create Account', icon: Iconsax.user_add, onClicked: () => selectedItem(context, 5)),
               ],

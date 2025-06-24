@@ -289,52 +289,211 @@ Widget _buildStockList() {
 }
 
 
-  Widget _buildStockTile(QueryDocumentSnapshot stock) {
-    final name = stock['name'];
-    final quantity = stock['quantity'];
-    final limit = stock['limit'] ?? '';
-    final type = stock['type'] ?? 'N/A';
+Widget _buildStockTile(QueryDocumentSnapshot stock) {
+  final name = stock['name'];
+  final quantity = stock['quantity'];
+  final limit = stock['limit'] ?? '';
+  final type = stock['type'] ?? 'N/A';
 
-    final int qty = int.tryParse(quantity.toString()) ?? 0;
-    final int lim = int.tryParse(limit.toString()) ?? 0;
-    final bool isLow = qty <= lim;
-    final card = Card(
-      color: isLow ? Colors.red.shade100 : Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      margin: const EdgeInsets.only(bottom: 16),
-      elevation: 3,
-      child: ListTile(
-        leading: Icon(
-          isLow ? Icons.warning_amber_rounded : Iconsax.box,
-          color: isLow ? Colors.red : const Color(0xFF4B8673),
-          size: 30,
+  final int qty = int.tryParse(quantity.toString()) ?? 0;
+  final int lim = int.tryParse(limit.toString()) ?? 0;
+  final bool isLow = qty <= lim;
+  
+  final card = Container(
+    margin: const EdgeInsets.only(bottom: 12),
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(16),
+      color: isLow ? Colors.red.shade50 : Colors.white,
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.06),
+          blurRadius: 12,
+          offset: const Offset(0, 2),
         ),
-        title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text('Quantity: $quantity\nLimit: $limit'),
+      ],
+      border: Border.all(
+        color: isLow 
+          ? Colors.red.withOpacity(0.2)
+          : Colors.grey.withOpacity(0.08),
+        width: 1,
       ),
-    );
+    ),
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          // Status Icon - Simplified
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: isLow 
+                ? Colors.red.withOpacity(0.1)
+                : const Color(0xFF4B8673).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              isLow ? Icons.warning_rounded : Iconsax.box,
+              color: isLow ? Colors.red.shade600 : const Color(0xFF4B8673),
+              size: 20,
+            ),
+          ),
+          
+          const SizedBox(width: 12),
+          
+          // Main Content - More compact
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Name and Type Row
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        name,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF1A1A1A),
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    // Type badge - smaller and inline
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF4B8673).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        type,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF4B8673),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                
+                const SizedBox(height: 8),
+                
+                // Quantity and Limit Row - Horizontal layout
+                Row(
+                  children: [
+                    // Current Stock
+                    Expanded(
+                      flex: 2,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Stock',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                          Text(
+                            '$quantity',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: isLow ? Colors.red.shade600 : const Color(0xFF1A1A1A),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    // Divider
+                    Container(
+                      width: 1,
+                      height: 30,
+                      color: Colors.grey.shade300,
+                      margin: const EdgeInsets.symmetric(horizontal: 12),
+                    ),
+                    
+                    // Limit
+                    Expanded(
+                      flex: 1,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Limit',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                          Text(
+                            '$limit',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF1A1A1A),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          
+          // Status indicator - Right side
+          if (isLow) ...[
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              decoration: BoxDecoration(
+                color: Colors.red.shade100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                'LOW',
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.red.shade700,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    ),
+  );
 
-    return widget.isAdmin
-        ? Slidable(
-          key: ValueKey(name),
-          startActionPane: _buildActionPane(
-            stock.id,
-            name,
-            quantity.toString(),
-            limit.toString(),
-            type,
-          ),
-          endActionPane: _buildActionPane(
-            stock.id,
-            name,
-            quantity.toString(),
-            limit.toString(),
-            type,
-          ),
-          child: card,
-        )
-        : card;
-  }
+  return widget.isAdmin
+      ? Slidable(
+        key: ValueKey(name),
+        startActionPane: _buildActionPane(
+          stock.id,
+          name,
+          quantity.toString(),
+          limit.toString(),
+          type,
+        ),
+        endActionPane: _buildActionPane(
+          stock.id,
+          name,
+          quantity.toString(),
+          limit.toString(),
+          type,
+        ),
+        child: card,
+      )
+      : card;
+}
 
   ActionPane _buildActionPane(
     String docId,
@@ -404,6 +563,14 @@ Widget _buildStockList() {
         title: const Text(
           'Stock',
           style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        centerTitle: true,
+        leading: IconButton(
+          onPressed: () => Navigator.pop(context),
+          icon: const Icon(
+            Icons.arrow_back_ios,
+            color: Color(0xFF2C3E50),
+          ),
         ),
         backgroundColor: Colors.white,
         elevation: 0,

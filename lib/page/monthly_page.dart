@@ -68,6 +68,19 @@ class _MonthlyPageState extends State<MonthlyPage> {
         sales.add({'date': doc.id, 'amount': amount});
       }
 
+      // ✅ Sort the sales list by date
+      sales.sort((a, b) {
+        try {
+          // Parse the date strings to DateTime objects for proper comparison
+          DateTime dateA = DateFormat('MMMM d yyyy').parse(a['date']);
+          DateTime dateB = DateFormat('MMMM d yyyy').parse(b['date']);
+          return dateA.compareTo(dateB);
+        } catch (e) {
+          // If parsing fails, fall back to string comparison
+          return a['date'].toString().compareTo(b['date'].toString());
+        }
+      });
+
       if (!mounted) return; // ✅ Prevent using context if widget was disposed
       setState(() {
         monthlySales = totalAmount;
@@ -179,10 +192,14 @@ Future<void> _downloadPdf() async {
     'snackTotal': 0,
     'netSales': 0.0,
     'totalSales': 0.0,
+    'cashTotal': 0.0,    // Add cash total
+    'gcashTotal': 0.0,   // Add gcash total
+    'promoTotal': 0,     // Add promo total
     'largeCupCategories': <String, Map<String, int>>{},
     'regularCupCategories': <String, Map<String, int>>{},
     'silogCategories': <String, Map<String, int>>{},
     'snackCategories': <String, Map<String, int>>{},
+    'promoDetails': <String, Map<String, int>>{}, // Add promo details
     'expenses': <Map<String, dynamic>>[],
   };
 
@@ -212,10 +229,21 @@ Future<void> _downloadPdf() async {
         consolidatedData['totalSales'] += (monthData['totalSales'] is num) 
             ? (monthData['totalSales'] as num).toDouble() 
             : 0.0;
+        // Add cash and gcash totals
+        consolidatedData['cashTotal'] += (monthData['cashTotal'] is num) 
+            ? (monthData['cashTotal'] as num).toDouble() 
+            : 0.0;
+        consolidatedData['gcashTotal'] += (monthData['gcashTotal'] is num) 
+            ? (monthData['gcashTotal'] as num).toDouble() 
+            : 0.0;
+        // Add promo total
+        consolidatedData['promoTotal'] += (monthData['promoTotal'] is num) 
+            ? (monthData['promoTotal'] as num).toInt() 
+            : 0;
       }
     }
 
-    // Process user details for category data and expenses
+    // Process user details for category data, promo data, and expenses
     if (data.containsKey('userDetails')) {
       final userDetails = data['userDetails'];
       if (userDetails is List) {
@@ -226,6 +254,9 @@ Future<void> _downloadPdf() async {
             _processDetailedItems(userDetail, 'regularCupDetailedItems', consolidatedData['regularCupCategories']);
             _processDetailedItems(userDetail, 'silogDetailedItems', consolidatedData['silogCategories']);
             _processDetailedItems(userDetail, 'snackDetailedItems', consolidatedData['snackCategories']);
+            
+            // Process promo data
+            _processPromoDetails(userDetail, consolidatedData['promoDetails']);
             
             // Process expenses
             if (userDetail.containsKey('expenses')) {
@@ -282,6 +313,18 @@ Future<void> _downloadPdf() async {
         pw.SizedBox(height: 10),
         _buildPdfSummaryTable(consolidatedData),
         pw.SizedBox(height: 20),
+
+        // Promo Section (Before Payment Methods)
+        pw.Text('PROMOTIONS', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+        pw.SizedBox(height: 10),
+        _buildPdfPromoTable(consolidatedData),
+        pw.SizedBox(height: 20),
+
+        // Payment Methods Section
+        pw.Text('PAYMENT METHODS', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+        pw.SizedBox(height: 10),
+        _buildPdfPaymentMethodsTable(consolidatedData),
+        pw.SizedBox(height: 20),
         
         // Large Cup Categories
         pw.Text('PRODUCT BREAKDOWN', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
@@ -324,12 +367,12 @@ Future<void> _downloadPdf() async {
         pw.SizedBox(height: 10),
         _buildPdfExpensesTable(consolidatedData['expenses'], totalExpenses),
         
-        // Daily Sales Breakdown (if needed)
+        // Daily Sales Breakdown (if needed) - ✅ Also sort this for PDF
         if (dailySalesList.isNotEmpty) ...[
           pw.SizedBox(height: 20),
           pw.Text('DAILY SALES', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
           pw.SizedBox(height: 10),
-          _buildPdfDailySalesTable(dailySalesList),
+          _buildPdfDailySalesTable(_getSortedDailySalesList()),
         ],
         
         // Profit calculation
@@ -367,6 +410,169 @@ Future<void> _downloadPdf() async {
   );
 
   await Printing.layoutPdf(onLayout: (format) async => pdf.save());
+}
+
+// Fixed helper method to process promo details - avoid double counting
+void _processPromoDetails(Map<dynamic, dynamic> userDetail, Map<String, Map<String, int>> promoMap) {
+  // Only process promoTotalDetails (this contains the actual promo usage data)
+  // Don't process both promoDetails and promoTotalDetails as it causes double counting
+  
+  if (userDetail.containsKey('promoTotalDetails')) {
+    final promoTotalDetails = userDetail['promoTotalDetails'];
+    if (promoTotalDetails is Map) {
+      promoTotalDetails.forEach((key, value) {
+        String promoName = key.toString();
+        
+        if (!promoMap.containsKey(promoName)) {
+          promoMap[promoName] = {'quantity': 0};
+        }
+        
+        int quantity = value is num ? value.toInt() : 0;
+        promoMap[promoName]!['quantity'] = (promoMap[promoName]!['quantity'] ?? 0) + quantity;
+      });
+    }
+  }
+  // If promoTotalDetails doesn't exist, fallback to promoDetails
+  else if (userDetail.containsKey('promoDetails')) {
+    final promoDetails = userDetail['promoDetails'];
+    if (promoDetails is Map) {
+      promoDetails.forEach((key, value) {
+        String promoName = key.toString();
+        
+        if (!promoMap.containsKey(promoName)) {
+          promoMap[promoName] = {'quantity': 0};
+        }
+        
+        int quantity = value is num ? value.toInt() : 0;
+        promoMap[promoName]!['quantity'] = (promoMap[promoName]!['quantity'] ?? 0) + quantity;
+      });
+    }
+  }
+}
+
+// Updated helper method to build promo table
+pw.Widget _buildPdfPromoTable(Map<String, dynamic> data) {
+  Map<String, Map<String, int>> promoDetails = data['promoDetails'] ?? {};
+  int promoTotal = data['promoTotal'] ?? 0;
+  
+  // If no promo details but has promoTotal, add default "Loyalty Card" entry
+  if (promoDetails.isEmpty && promoTotal > 0) {
+    promoDetails['Loyalty Card'] = {'quantity': promoTotal};
+  }
+  
+  if (promoDetails.isEmpty) {
+    return pw.Text('No promotions used', style: const pw.TextStyle(color: PdfColors.grey));
+  }
+
+  final rows = <pw.TableRow>[];
+  
+  // Header row
+  rows.add(
+    pw.TableRow(
+      decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+      children: [
+        _pdfTableCell('Promo Name', isHeader: true),
+        _pdfTableCell('Discounted Amount', isHeader: true),
+      ],
+    ),
+  );
+
+  // Group similar promo names and show count
+  Map<String, int> groupedPromos = {};
+  promoDetails.forEach((promoName, details) {
+    int quantity = details['quantity'] ?? 0;
+    if (groupedPromos.containsKey(promoName)) {
+      groupedPromos[promoName] = groupedPromos[promoName]! + quantity;
+    } else {
+      groupedPromos[promoName] = quantity;
+    }
+  });
+
+  // Calculate total occurrences for each promo type to show multiplier
+  Map<String, int> promoOccurrences = {};
+  promoDetails.forEach((promoName, details) {
+    promoOccurrences[promoName] = (promoOccurrences[promoName] ?? 0) + 1;
+  });
+
+  // Data rows
+  groupedPromos.forEach((promoName, totalQuantity) {
+    int occurrences = promoOccurrences[promoName] ?? 1;
+    String displayName = occurrences > 1 ? '${occurrences}x $promoName' : promoName;
+    
+    rows.add(
+      pw.TableRow(
+        children: [
+          _pdfTableCell(displayName),
+          _pdfTableCell(totalQuantity.toString()),
+        ],
+      ),
+    );
+  });
+
+  return pw.Table(
+    border: pw.TableBorder.all(color: PdfColors.grey),
+    children: rows,
+  );
+}
+
+// New helper method to build promo table
+
+// ✅ Helper method to get sorted daily sales list for PDF
+List<Map<String, dynamic>> _getSortedDailySalesList() {
+  List<Map<String, dynamic>> sortedList = List.from(dailySalesList);
+  sortedList.sort((a, b) {
+    try {
+      DateTime dateA = DateFormat('MMMM d yyyy').parse(a['date']);
+      DateTime dateB = DateFormat('MMMM d yyyy').parse(b['date']);
+      return dateA.compareTo(dateB);
+    } catch (e) {
+      return a['date'].toString().compareTo(b['date'].toString());
+    }
+  });
+  return sortedList;
+}
+
+// New helper method to build payment methods table
+pw.Widget _buildPdfPaymentMethodsTable(Map<String, dynamic> data) {
+  double cashTotal = data['cashTotal'] ?? 0.0;
+  double gcashTotal = data['gcashTotal'] ?? 0.0;
+  double totalPayments = cashTotal + gcashTotal;
+  
+  return pw.Table(
+    border: pw.TableBorder.all(color: PdfColors.grey),
+    children: [
+      pw.TableRow(
+        decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+        children: [
+          _pdfTableCell('Payment Method', isHeader: true),
+          _pdfTableCell('Amount', isHeader: true),
+          _pdfTableCell('Percentage', isHeader: true),
+        ],
+      ),
+      pw.TableRow(
+        children: [
+          _pdfTableCell('Cash'),
+          _pdfTableCell('${cashTotal.toStringAsFixed(2)}'),
+          _pdfTableCell('${totalPayments > 0 ? ((cashTotal / totalPayments) * 100).toStringAsFixed(1) : "0.0"}%'),
+        ],
+      ),
+      pw.TableRow(
+        children: [
+          _pdfTableCell('Gcash'),
+          _pdfTableCell('${gcashTotal.toStringAsFixed(2)}'),
+          _pdfTableCell('${totalPayments > 0 ? ((gcashTotal / totalPayments) * 100).toStringAsFixed(1) : "0.0"}%'),
+        ],
+      ),
+      pw.TableRow(
+        decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+        children: [
+          _pdfTableCell('Total', isHeader: true),
+          _pdfTableCell('${totalPayments.toStringAsFixed(2)}', isHeader: true),
+          _pdfTableCell('100.0%', isHeader: true),
+        ],
+      ),
+    ],
+  );
 }
 
 // Helper method to process detailed items with proper display names
@@ -635,126 +841,465 @@ pw.Widget _pdfTableCell(String text, {bool isHeader = false}) {
   );
 }
 
-  Widget _buildSalesList() {
-    return ListView.builder(
-      itemCount: dailySalesList.length,
-      itemBuilder: (_, index) {
-        final sale = dailySalesList[index];
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          child: Card(
-            elevation: 3,
-            color: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            child: ListTile(
-              contentPadding: const EdgeInsets.all(10),
-              title: Text(sale['date'], style: const TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: const Padding(
-                padding: EdgeInsets.only(top: 4),
-                child: Text('Daily Sales:', style: TextStyle(fontWeight: FontWeight.bold)),
-              ),
-              trailing: Text(
-                '₱${(sale['amount'] as double).toStringAsFixed(2)}',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
+// Then update your _showOptionsMenu method to include all the options:
 
-  Widget _buildBottomActions() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.2), spreadRadius: 2, blurRadius: 6)],
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-      ),
+void _showOptionsMenu() {
+  final hasData = monthlySales > 0; // Changed from inventoryTotalSales to monthlySales
+  
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (context) => Container(
+      padding: const EdgeInsets.all(20),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Total:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              Text(
-                '₱${monthlySales.toStringAsFixed(2)}',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF2E7D32)),
-              ),
-            ],
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 20),
+          
+          // Download PDF Option
+          _buildMenuOption(
+            icon: Icons.download_outlined,
+            title: 'Download PDF Report',
+            subtitle: 'Generate and download monthly sales report',
+            onTap: () {
+              Navigator.pop(context);
+              _downloadPdf();
+            },
           ),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: _downloadPdf,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4CAF50),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          
+          // Change Month Option
+          _buildMenuOption(
+            icon: Icons.calendar_today_outlined,
+            title: 'Change Month',
+            subtitle: 'Select a different month to view',
+            onTap: () {
+              Navigator.pop(context);
+              _pickMonth();
+            },
+          ),
+          const SizedBox(height: 16),
+          
+          // Reset Sales Option (only show if there's data)
+          if (hasData) ...[
+            _buildMenuOption(
+              icon: Icons.refresh_outlined,
+              title: 'Reset Monthly Sales',
+              subtitle: 'Clear all sales data for this month',
+              onTap: () {
+                Navigator.pop(context);
+                _showResetConfirmationDialog();
+              },
+              isDestructive: true, // Add this parameter to make it red
+            ),
+          ],
+          
+          const SizedBox(height: 20),
+        ],
+      ),
+    ),
+  );
+}
+
+// Update the _buildMenuOption method to support destructive actions:
+
+Widget _buildMenuOption({
+  required IconData icon,
+  required String title,
+  required String subtitle,
+  required VoidCallback onTap,
+  bool isDestructive = false, // Add this parameter
+}) {
+  final color = isDestructive ? Colors.red : const Color(0xFF4B8673);
+  
+  return InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(12),
+    child: Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.withOpacity(0.2)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              icon,
+              color: color,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: isDestructive ? Colors.red : null,
                   ),
-                  child: const Text('Download PDF', style: TextStyle(color: Colors.white)),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: _showResetConfirmationDialog,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red[400],
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
                   ),
-                  child: const Text('Reset', style: TextStyle(color: Colors.white)),
                 ),
-              ),
-            ],
+              ],
+            ),
+          ),
+          Icon(
+            Icons.chevron_right,
+            color: Colors.grey[400],
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
-  Widget _buildEmptyState() {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Iconsax.calendar, size: 80, color: Colors.grey),
-          SizedBox(height: 12),
-          Text('No monthly sales yet.', style: TextStyle(color: Colors.grey, fontSize: 16)),
-        ],
-      ),
-    );
-  }
+Widget _buildSalesList() {
+  return ListView.builder(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    itemCount: dailySalesList.length,
+    itemBuilder: (_, index) {
+      final sale = dailySalesList[index];
+      final amount = sale['amount'] as double;
+      final date = sale['date'];
+      
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Colors.white,
+                Colors.grey[50]!,
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                offset: const Offset(0, 4),
+                blurRadius: 12,
+                spreadRadius: 0,
+              ),
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                offset: const Offset(0, 1),
+                blurRadius: 3,
+                spreadRadius: 0,
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () {
+                // Optional: Add tap functionality
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  children: [
+                    // Date Section with Icon
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            const Color(0xFF4B8673),
+                            const Color(0xFF4B8673).withOpacity(0.8),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF4B8673).withOpacity(0.3),
+                            offset: const Offset(0, 4),
+                            blurRadius: 8,
+                            spreadRadius: 0,
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Iconsax.calendar_1,
+                        color: Colors.white,
+                        size: 24,),
+                    ),
+                    const SizedBox(width: 16),
+                    
+                    // Content Section
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            date,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF2D3748),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Daily Sales',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey[600],
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    // Amount Section
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          '₱${amount.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF4B8673),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF4B8673).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            'Sales',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: const Color(0xFF4B8673),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
+
+
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text('Monthly Sales'),
+        elevation: 0,
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        title: const Text(
+          'Monthly Sales',
+          style: TextStyle(
+            color: Color(0xFF2D3748),
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(
+            Iconsax.arrow_left_2,
+            color: Color(0xFF4B8673),
+          ),
+          onPressed: () => Navigator.pop(context),
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.calendar_today),
-            onPressed: _pickMonth,
+            icon: const Icon(Iconsax.more, color: Color(0xFF4B8673)),
+            onPressed: _showOptionsMenu,
           ),
         ],
       ),
-      backgroundColor: Colors.grey[200],
-      body: isLoading
-          ? Center(child: LoadingAnimationWidget.fallingDot(color: const Color(0xFF4b8673), size: 80))
-          : monthlySales > 0
-              ? Column(
+      body: Column(
+        children: [
+          // Header Card
+          Container(
+            margin: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xFF4B8673),
+                  const Color(0xFF4B8673).withOpacity(0.8),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF4B8673).withOpacity(0.3),
+                  offset: const Offset(0, 8),
+                  blurRadius: 24,
+                  spreadRadius: 0,
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    const SizedBox(height: 10),
-                    Expanded(child: _buildSalesList()),
-                    _buildBottomActions(),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Iconsax.chart_21,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            DateFormat('MMMM yyyy').format(selectedMonth),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Text(
+                            'Monthly Sales Report',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.8),
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
-                )
-              : _buildEmptyState(),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Total Sales',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.8),
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '₱${monthlySales.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Content
+          Expanded(
+            child: isLoading
+                ? Center(
+                    child: LoadingAnimationWidget.fallingDot(
+            color: const Color(0xFF4b8673),
+            size: 80,
+          ),
+                  )
+                : dailySalesList.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[100],
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Iconsax.chart_fail,
+                                size: 48,
+                                color: Colors.grey[400],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No sales data found',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Sales data for ${DateFormat('MMMM yyyy').format(selectedMonth)} is not available',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[500],
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      )
+                    : _buildSalesList(),
+          ),
+        ],
+      ),
     );
   }
 }
